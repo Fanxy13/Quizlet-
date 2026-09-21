@@ -20,6 +20,7 @@ läuft im Browser.
 | Schreiben | Alles eintippen, Fehler kommen erneut dran, Tippfehler-Erkennung |
 | Test | Auswahl, Wahr/Falsch und Tippfragen, danach Auswertung Frage für Frage |
 | Zuordnen | Paare auf Zeit anklicken, mit Bestzeit pro Set |
+| Speed | Begriffe fallen von oben, unten stehen 4–6 Antworten. Treffer geben einen Punkt und erhöhen das Tempo, Fehlgriff und durchgefallenes Wort kosten einen. Bestwert pro Set |
 
 Dazu: Sets selbst anlegen und bearbeiten, Karten markieren (Stern), Seiten tauschen,
 mischen, Fortschritt zurücksetzen, CSV-Export, komplettes Backup als JSON,
@@ -81,7 +82,8 @@ Hash), es wird also nichts hochgeladen.
 | `Leertaste` / `F` | Karte umdrehen |
 | `←` `→` | vor und zurück |
 | `↑` `↓` | „Sitzt“ / „Nochmal“ |
-| `1`–`4` | Antwort auswählen |
+| `1`–`6` | Antwort auswählen |
+| `Leertaste` | im Speed-Modus: Pause |
 | `Enter` | prüfen bzw. weiter |
 | `A` | vorlesen |
 | `S` | mischen |
@@ -123,14 +125,14 @@ js/store.js         localStorage: Sets, Fortschritt, Einstellungen, Teilen-Links
 js/importer.js      Parser für eingefügten Text und Dateien
 js/ui.js            Navigation, Router, Dialoge, gemeinsame Bausteine
 js/pages.js         Start, Bibliothek, Set-Übersicht, Editor, Einstellungen
-js/modes/           study.js (Basis) + flashcards, learn, write, test, match
+js/modes/           study.js (Basis) + flashcards, learn, write, test, match, speed
 ```
 
 Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Werkzeug.
 
 ### Version
 
-Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.6`),
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.7`),
 damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
 nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
 `js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter

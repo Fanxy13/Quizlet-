@@ -95,17 +95,29 @@
     }
 
     function feedback(area, isCorrect, solution, onNext) {
-      var box_ = el('div', { class: 'feedback feedback--' + (isCorrect ? 'right' : 'wrong') }, [
-        u.icon(isCorrect ? 'check-circle' : 'x-circle'),
-        el('p', { class: 'feedback__text', text: isCorrect ? '' : solution })
+      // Richtig: nur kurz aufblitzen lassen und sofort weiter - das hält
+      // das Durchklicken zügig. Falsch: Lösung stehen lassen.
+      if (isCorrect) { advance(220); return; }
+      var box_ = el('div', { class: 'feedback feedback--wrong' }, [
+        u.icon('x-circle'),
+        el('p', { class: 'feedback__text', text: solution })
       ]);
       area.appendChild(box_);
-      if (isCorrect) { advance(700); return; }
       var next = el('button', { class: 'btn btn--primary btn--wide', type: 'button', onclick: function () { advance(0); } },
         [el('span', { class: 'btn__label', text: 'Weiter' }), u.icon('arrow-right')]);
       box_.appendChild(next);
       next.focus();
-      App.ui.keys({ 'Enter': { always: true, run: function () { advance(0); } } });
+      // Enter, Leertaste oder ein Klick irgendwo bringen die nächste Frage
+      App.ui.keys({
+        'Enter': { always: true, run: function () { advance(0); } },
+        ' ': { always: true, run: function () { advance(0); } }
+      });
+      setTimeout(function () {
+        document.addEventListener('click', function once() {
+          document.removeEventListener('click', once);
+          advance(0);
+        });
+      }, 150);
     }
 
     function buildChoice(card, data, area) {

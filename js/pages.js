@@ -14,7 +14,8 @@ window.App = window.App || {};
     { key: 'learn', icon: 'learn', title: 'Lernen', color: 'b' },
     { key: 'write', icon: 'pencil', title: 'Schreiben', color: 'c' },
     { key: 'test', icon: 'checklist', title: 'Test', color: 'd' },
-    { key: 'match', icon: 'puzzle', title: 'Zuordnen', color: 'e' }
+    { key: 'match', icon: 'puzzle', title: 'Zuordnen', color: 'e' },
+    { key: 'speed', icon: 'bolt', title: 'Speed', color: 'f' }
   ];
 
   /* ==================== gemeinsame Bausteine ==================== */

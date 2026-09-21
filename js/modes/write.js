@@ -106,7 +106,7 @@
         panel.appendChild(el('button', { class: 'btn btn--primary btn--wide', type: 'button', onclick: next },
           [el('span', { class: 'btn__label', text: 'Weiter' }), u.icon('arrow-right')]));
         area.appendChild(panel);
-        if (isCorrect) setTimeout(next, 650);
+        if (isCorrect) setTimeout(next, 260);
       }
 
       function next() { step(); }

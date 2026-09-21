@@ -255,6 +255,7 @@ window.App = window.App || {};
       box: entry.box || {},
       known: entry.known || {},
       matchBest: entry.matchBest || 0,
+      speedBest: entry.speedBest || 0,
       tests: entry.tests || [],
       lastMode: entry.lastMode || ''
     };
