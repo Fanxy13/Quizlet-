@@ -1091,6 +1091,12 @@ button, input, textarea { font: inherit; color: inherit; }
   animation: slideup .22s ease;
 }
 .modal__head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.modal__body { display: flex; flex-direction: column; gap: 12px; }
+.modal__body .textarea,
+.modal__body .preview,
+.modal__body .status,
+.modal__body .hint,
+.modal__body .chips--left { margin-top: 0; }
 .modal__icon {
   width: 40px;
   height: 40px;
@@ -1242,3 +1248,23 @@ button, input, textarea { font: inherit; color: inherit; }
 .teaser__item.mode--c .teaser__icon { color: #f472b6; }
 .teaser__item.mode--d .teaser__icon { color: #fbbf24; }
 .teaser__item.mode--e .teaser__icon { color: #2dd4bf; }
+
+/* --- Prompt-Helfer --- */
+
+.textarea--prompt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--bg);
+  white-space: pre-wrap;
+  tab-size: 4;
+}
+.chips--left { justify-content: flex-start; margin-top: 10px; }
+
+.choice__glyph {
+  width: 18px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 800;
+}

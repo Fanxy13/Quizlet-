@@ -31,8 +31,13 @@ Vier Wege, alle über die Startseite:
 1. **Link** – z. B. ein Quizlet-Set. Die App liest die Seite und zieht die Karten heraus.
 2. **Text** – eingefügte Liste. Erkannt werden Tab, `;`, `|`, `-`, `=`, `:`, Komma
    und abwechselnde Zeilen (Begriff / Definition / Begriff / …).
-3. **Datei** – CSV, TSV, TXT oder ein JSON-Backup.
-4. **Neu** – Karten selbst schreiben.
+3. **Prompt** – fertiger Prompt für ChatGPT, Claude & Co. Thema eintragen,
+   Kartenzahl und Trennzeichen wählen, kopieren, in den Chat einfügen. Die Antwort
+   kommt in genau dem Format zurück, das der Importer liest, und wird unter **Text**
+   eingesetzt. Semikolon ist voreingestellt, weil Tabulatoren beim Kopieren aus
+   einem Chat oft verloren gehen.
+4. **Datei** – CSV, TSV, TXT oder ein JSON-Backup.
+5. **Neu** – Karten selbst schreiben.
 
 Jedes Set lässt sich als Link teilen: Der Link enthält das ganze Set (Base64 im Hash),
 es wird also nichts hochgeladen.

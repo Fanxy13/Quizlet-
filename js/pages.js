@@ -95,6 +95,10 @@ window.App = window.App || {};
           class: 'btn btn--ghost btn--sm', type: 'button',
           onclick: function () { openTextImport(); }
         }, [u.icon('paste'), el('span', { text: 'Text einfügen' })]));
+        statusNode.appendChild(el('button', {
+          class: 'btn btn--ghost btn--sm', type: 'button',
+          onclick: function () { openPromptHelper(); }
+        }, [u.icon('wand'), el('span', { text: 'KI-Prompt' })]));
       })
       .finally(function () { if (button) button.disabled = false; });
   }
@@ -122,7 +126,15 @@ window.App = window.App || {};
     var dialog = App.ui.modal({
       title: 'Text einfügen',
       icon: 'paste',
-      body: [el('label', { class: 'field' }, [u.icon('tag'), titleInput]), area, hint],
+      body: [
+        el('label', { class: 'field' }, [u.icon('tag'), titleInput]),
+        area,
+        hint,
+        el('div', { class: 'chips chips--left' }, [
+          el('button', { class: 'chip chip--ghost', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { dialog.close(); openPromptHelper(); } },
+            [u.icon('wand'), el('span', { text: 'Liste von einer KI erstellen lassen' })])
+        ])
+      ],
       actions: [
         el('button', { class: 'btn btn--primary', type: 'button', onclick: function () {
           var cards = App.importer.fromText(area.value);
@@ -135,6 +147,118 @@ window.App = window.App || {};
     });
     update();
     setTimeout(function () { area.focus(); }, 60);
+  }
+
+  /* ==================== Prompt für KI-Chats ==================== */
+
+  var PROMPT_COUNTS = [10, 20, 30, 50];
+
+  /**
+   * Fertiger Prompt, der eine KI zu einer Liste zwingt, die der Importer
+   * sicher lesen kann: eine Karte pro Zeile, ein festes Trennzeichen,
+   * kein Markdown und kein Begleittext.
+   */
+  function buildPrompt(topic, count, separator) {
+    var isTab = separator === 'tab';
+    var glue = isTab ? '\t' : ' ; ';
+    return [
+      'Erstelle eine Lernkartei zum Thema: ' + (topic || '[Thema hier eintragen]'),
+      '',
+      'Halte dich genau an dieses Format, sonst kann meine Lern-App die Karten nicht einlesen:',
+      '1. Eine Karte pro Zeile.',
+      '2. Begriff und Definition trennst du mit ' + (isTab ? 'einem Tabulatorzeichen' : 'einem Semikolon') + '.',
+      '3. Keine Nummerierung, keine Aufzählungszeichen, keine Überschriften.',
+      '4. Kein Markdown, keine Tabelle, kein Code-Block, keine Anführungszeichen.',
+      '5. Keine Leerzeile und kein Text vor oder nach der Liste.',
+      '6. Begriff kurz (1 bis 5 Wörter), Definition höchstens ein Satz.',
+      '7. Mehrere gültige Antworten mit " / " trennen.',
+      '8. Genau ' + count + ' Karten, nichts doppelt.',
+      '',
+      'So sieht das Ergebnis aus (nur ein Beispiel für das Format):',
+      'Mitochondrium' + glue + 'Kraftwerk der Zelle',
+      'Ribosom' + glue + 'baut Proteine aus Aminosäuren',
+      '',
+      'Gib jetzt nur die ' + count + ' Karten aus, sonst nichts.'
+    ].join('\n');
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(function () { u.toast('Kopiert', 'check'); })
+        .catch(function () { u.toast('Kopieren nicht erlaubt', 'alert'); });
+      return;
+    }
+    var helperField = el('textarea', { style: 'position:fixed;opacity:0' });
+    helperField.value = text;
+    document.body.appendChild(helperField);
+    helperField.select();
+    try { document.execCommand('copy'); u.toast('Kopiert', 'check'); }
+    catch (error) { u.toast('Kopieren nicht erlaubt', 'alert'); }
+    document.body.removeChild(helperField);
+  }
+
+  /** Dialog: Prompt zusammenstellen, kopieren, danach Antwort einfügen. */
+  function openPromptHelper() {
+    var state = { count: 20, separator: 'semicolon' };
+    var topicInput = el('input', { class: 'input', type: 'text', maxlength: '120', placeholder: 'Thema, z. B. Biologie Kapitel 3' });
+    var output = el('textarea', { class: 'textarea textarea--prompt', rows: '11', readonly: true, spellcheck: 'false' });
+
+    function refresh() { output.value = buildPrompt(topicInput.value.trim(), state.count, state.separator); }
+    topicInput.addEventListener('input', refresh);
+
+    function chipRow(options, key) {
+      var row = el('div', { class: 'choice' });
+      options.forEach(function (option) {
+        var button = el('button', {
+          class: 'choice__item' + (state[key] === option.value ? ' is-on' : ''),
+          type: 'button', title: option.label,
+          onclick: function () {
+            state[key] = option.value;
+            u.qsa('.choice__item', row).forEach(function (node) { node.classList.remove('is-on'); });
+            button.classList.add('is-on');
+            refresh();
+          }
+        }, [
+          option.glyph ? el('span', { class: 'choice__glyph', text: option.glyph }) : option.icon ? u.icon(option.icon) : null,
+          el('span', { text: option.label })
+        ].filter(Boolean));
+        row.appendChild(button);
+      });
+      return row;
+    }
+
+    var dialog = App.ui.modal({
+      title: 'Prompt für die KI',
+      icon: 'wand',
+      body: [
+        el('label', { class: 'field' }, [u.icon('tag'), topicInput]),
+        el('div', { class: 'setting' }, [
+          el('span', { class: 'setting__label', text: 'Karten' }),
+          chipRow(PROMPT_COUNTS.map(function (value) {
+            return { value: value, label: String(value), icon: 'hash' };
+          }), 'count')
+        ]),
+        el('div', { class: 'setting' }, [
+          el('span', { class: 'setting__label', text: 'Trennzeichen' }),
+          chipRow([
+            { value: 'semicolon', label: 'Semikolon', glyph: ';' },
+            { value: 'tab', label: 'Tabulator', glyph: '\u21e5' }
+          ], 'separator')
+        ]),
+        output,
+        el('p', { class: 'hint', text: 'Kopieren → in ChatGPT, Claude o. Ä. einfügen → Antwort der KI kopieren → hier unter „Text“ einsetzen. Semikolon überlebt das Kopieren aus einem Chat am zuverlässigsten.' })
+      ],
+      actions: [
+        el('button', { class: 'btn', type: 'button', onclick: function () { dialog.close(); openTextImport(); } },
+          [u.icon('paste'), el('span', { class: 'btn__label', text: 'Text einfügen' })]),
+        el('button', { class: 'btn btn--primary', type: 'button', onclick: function () { copyText(output.value); } },
+          [u.icon('copy'), el('span', { class: 'btn__label', text: 'Kopieren' })])
+      ]
+    });
+
+    refresh();
+    setTimeout(function () { topicInput.focus(); }, 60);
   }
 
   /* ==================== Start ==================== */
@@ -181,6 +305,8 @@ window.App = window.App || {};
       el('div', { class: 'chips' }, [
         el('button', { class: 'chip', type: 'button', title: 'Text einfügen', onclick: function () { openTextImport(); } },
           [u.icon('paste'), el('span', { text: 'Text' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } },
+          [u.icon('wand'), el('span', { text: 'Prompt' })]),
         el('button', { class: 'chip', type: 'button', title: 'Datei laden (CSV/TXT)', onclick: pickFile },
           [u.icon('upload'), el('span', { text: 'Datei' })]),
         el('a', { class: 'chip', href: '#/edit/new', title: 'Selbst schreiben' },
@@ -257,6 +383,7 @@ window.App = window.App || {};
       status,
       el('div', { class: 'chips' }, [
         el('button', { class: 'chip', type: 'button', onclick: function () { openTextImport(); } }, [u.icon('paste'), el('span', { text: 'Text' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } }, [u.icon('wand'), el('span', { text: 'Prompt' })]),
         el('button', { class: 'chip', type: 'button', onclick: pickFile }, [u.icon('upload'), el('span', { text: 'Datei' })]),
         el('a', { class: 'chip', href: '#/edit/new' }, [u.icon('plus'), el('span', { text: 'Leer' })])
       ])
@@ -386,8 +513,7 @@ window.App = window.App || {};
       actions: [
         el('button', { class: 'btn btn--primary', type: 'button', onclick: function () {
           field.select();
-          if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { u.toast('Kopiert', 'check'); });
-          else { document.execCommand('copy'); u.toast('Kopiert', 'check'); }
+          copyText(link);
         } }, [u.icon('copy'), el('span', { text: 'Kopieren' })])
       ]
     });
@@ -607,6 +733,8 @@ window.App = window.App || {};
     modes: MODES,
     setCard: setCard,
     openTextImport: openTextImport,
+    openPromptHelper: openPromptHelper,
+    buildPrompt: buildPrompt,
     previewImport: previewImport,
     downloadFile: downloadFile
   };
