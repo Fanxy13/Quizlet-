@@ -54,6 +54,13 @@ Die Übergabe läuft über die Adresszeile; ist das Set dafür zu groß oder blo
 Browser das neue Fenster (aus der Konsole heraus immer), wandern die Daten über
 `window.name` und die Seite wechselt im selben Tab.
 
+Doppelte Karten bleiben erhalten – Quizlet-Sets enthalten denselben Begriff
+durchaus mehrfach, und jede Karte soll einzeln abgefragt werden. Entdoppelt wird
+nur, wenn die Karten aus der Seite gelesen werden, weil dort dieselbe Karte über
+mehrere Wege auftauchen kann. Karten, deren Seite gar keinen Text hat (reine
+Bildkarten), lassen sich nicht abfragen; wie viele das waren, steht als Hinweis
+in der Import-Vorschau und in der Konsole.
+
 Übernommen wurde nur das Vorgehen, kein fremder Code.
 
 ### 2. Text einfügen
@@ -136,7 +143,7 @@ Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Werkzeug.
 
 ### Version
 
-Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.8`),
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.9`),
 damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
 nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
 `js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter

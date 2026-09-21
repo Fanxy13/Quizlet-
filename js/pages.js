@@ -39,20 +39,29 @@ window.App = window.App || {};
   function previewImport(result) {
     var titleInput = el('input', { class: 'input', type: 'text', value: result.title || 'Importiertes Set', maxlength: '120' });
     var list = el('div', { class: 'preview' });
-    result.cards.slice(0, 60).forEach(function (card) {
+    var shown = result.cards.slice(0, 200);
+    shown.forEach(function (card, position) {
       list.appendChild(el('div', { class: 'preview__row' }, [
+        el('span', { class: 'preview__num', text: String(position + 1) }),
         el('span', { class: 'preview__term', text: u.truncate(card.term, 60) }),
         el('span', { class: 'preview__def', text: u.truncate(card.definition, 80) })
       ]));
     });
+    if (result.cards.length > shown.length) {
+      list.appendChild(el('div', { class: 'preview__more' }, [
+        u.icon('dots'),
+        el('span', { text: 'und ' + (result.cards.length - shown.length) + ' weitere' })
+      ]));
+    }
 
     var dialog = App.ui.modal({
       title: result.cards.length + ' Karten',
       icon: 'check-circle',
       body: [
         el('label', { class: 'field' }, [u.icon('tag'), titleInput]),
+        result.note ? el('p', { class: 'status status--warn' }, [u.icon('alert'), el('span', { text: result.note })]) : null,
         list
-      ],
+      ].filter(Boolean),
       actions: [
         el('button', { class: 'btn', type: 'button', onclick: function () { dialog.close(); } }, [u.icon('x'), el('span', { text: 'Verwerfen' })]),
         el('button', { class: 'btn btn--primary', type: 'button', onclick: function () {
@@ -131,13 +140,20 @@ window.App = window.App || {};
       '(function(){',
       '  var app = ' + JSON.stringify(app) + ';',
       '  var out = [], seen = new Set(), keys = {};',
+      '  var skipped = 0;',
+      '  // Aus der Schnittstelle ist jede Karte eine eigene, auch wenn zwei',
+      '  // denselben Text haben. Nur beim Absuchen der Seite wird entdoppelt,',
+      '  // weil dort dieselbe Karte mehrfach gefunden werden kann.',
+      '  var allowDuplicates = true;',
       '  function add(a, b) {',
       '    a = String(a || "").replace(/\\s+/g, " ").trim();',
       '    b = String(b || "").replace(/\\s+/g, " ").trim();',
-      '    if (!a || !b) return;',
-      '    var k = a + "\\u0000" + b;',
-      '    if (keys[k]) return;',
-      '    keys[k] = 1;',
+      '    if (!a || !b) { skipped++; return; }',
+      '    if (!allowDuplicates) {',
+      '      var k = a + "\\u0000" + b;',
+      '      if (keys[k]) return;',
+      '      keys[k] = 1;',
+      '    }',
       '    out.push([a, b]);',
       '  }',
       '  function walk(n) {',
@@ -180,6 +196,8 @@ window.App = window.App || {};
       '  }',
       '',
       '  function fallback() {',
+      '    allowDuplicates = false;',
+      '    out = []; keys = {}; skipped = 0;',
       '    // Weg 2: JSON, das die Seite mitliefert',
       '    Array.prototype.forEach.call(document.querySelectorAll("script"), function (tag) {',
       '      var text = tag.textContent || "";',
@@ -219,9 +237,11 @@ window.App = window.App || {};
       '      .replace(/\\s*\\|.*$/, "")',
       '      .replace(/\\s*[-\\u2013\\u2014]\\s*Quizlet.*$/i, "")',
       '      .replace(/\\s*(Karteikarten|Flashcards|Lernsets?)\\s*$/i, "").trim();',
-      '    var code = btoa(unescape(encodeURIComponent(JSON.stringify({ t: title, d: "", c: out }))))',
+      '    var note = skipped ? skipped + (skipped === 1 ? " Karte" : " Karten")',
+      '      + " ohne Text \u00fcbersprungen (nur Bild?)" : "";',
+      '    var code = btoa(unescape(encodeURIComponent(JSON.stringify({ t: title, d: note, c: out }))))',
       '      .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");',
-      '    console.log("QuizFree: " + out.length + " Karten gefunden");',
+      '    console.log("QuizFree: " + out.length + " Karten gefunden" + (note ? " (" + note + ")" : ""));',
       '    var win = null;',
       '    if (code.length < 30000) { try { win = window.open(app + "#/import?d=" + code, "_blank"); } catch (e) {} }',
       '    if (win) return;',
@@ -802,7 +822,7 @@ window.App = window.App || {};
     if (!code) { App.ui.go('#/new'); return; }
     var set = App.store.decodeSet(code);
     if (!set) { host.appendChild(App.ui.empty('alert', 'Link nicht lesbar')); return; }
-    previewImport({ title: set.title, cards: set.cards, source: 'Geteilter Link' });
+    previewImport({ title: set.title, cards: set.cards, source: 'Geteilter Link', note: set.description });
     renderHome(host);
   }
 

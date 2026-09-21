@@ -695,12 +695,29 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .preview__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1.3fr);
   gap: 10px;
   padding: 9px 12px;
   font-size: 14px;
   border-bottom: 1px solid var(--line);
 }
+.preview__num {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.preview__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.status--warn { color: var(--warn); }
 .preview__row:last-child { border-bottom: 0; }
 .preview__term { font-weight: 650; overflow-wrap: anywhere; }
 .preview__def { color: var(--muted); overflow-wrap: anywhere; }
@@ -1228,7 +1245,8 @@ button, input, textarea { font: inherit; color: inherit; }
   .mode { padding: 14px 6px; }
   .mode__icon { width: 46px; height: 46px; border-radius: 15px; }
   .controls { gap: 6px; }
-  .preview__row { grid-template-columns: 1fr; gap: 2px; }
+  .preview__row { grid-template-columns: 22px 1fr; gap: 2px 8px; }
+  .preview__row .preview__def { grid-column: 2; }
 }
 
 @media (max-width: 420px) {

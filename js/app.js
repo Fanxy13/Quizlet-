@@ -6,7 +6,7 @@
 
   // Muss zum ?v=... in index.html passen - daran erkennt man, ob der
   // Browser wirklich die neueste Fassung geladen hat.
-  App.VERSION = '1.8';
+  App.VERSION = '1.9';
 
   function boot() {
     App.registerPages();
