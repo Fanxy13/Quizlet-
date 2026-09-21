@@ -66,9 +66,16 @@ Quizlet steht hinter Cloudflare und sperrt Abrufe aus Rechenzentren – bei manc
 Sets scheitern deshalb alle Proxys. Dafür gibt es den **Quizlet-Helfer**
 (erscheint automatisch in der Fehlermeldung):
 
-1. Set bei Quizlet im eigenen Browser öffnen
+1. Set bei Quizlet im eigenen Browser öffnen und ganz nach unten scrollen
 2. Konsole öffnen (F12), den angebotenen Code einfügen, Enter
-3. Die Karten öffnen sich als Import in QuizFree
+   (Chrome verlangt beim ersten Mal, dass man `allow pasting` tippt)
+3. Die Seite wechselt zu QuizFree, die Karten stehen als Import bereit
+
+Der Code liest die Karten aus drei Quellen: eingebettetes JSON, Rohsuche im
+Quelltext und den sichtbaren Karten der Seite. Die Übergabe läuft über die
+Adresszeile; ist das Set dafür zu groß oder blockt der Browser das neue
+Fenster (so ist es aus der Konsole heraus immer), wandern die Daten über
+`window.name` und die Seite wechselt im selben Tab.
 
 Der Code läuft in der bereits geladenen Seite, also in einer ganz normalen
 Browser-Sitzung. Es gibt keinen Proxy, den Cloudflare blocken könnte. Wahlweise

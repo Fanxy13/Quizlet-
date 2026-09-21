@@ -169,34 +169,85 @@ window.App = window.App || {};
    */
   function quizletSnippet() {
     var app = location.href.split('#')[0];
-    return '(function(){' +
-      'var out=[],seen=new Set();' +
-      'function walk(n){' +
-        'if(!n||typeof n!=="object"||seen.has(n))return;seen.add(n);' +
-        'if(Array.isArray(n)){n.forEach(walk);return;}' +
-        'if(Array.isArray(n.cardSides)){var s={};' +
-          'n.cardSides.forEach(function(d){var t="";(d.media||[]).forEach(function(m){t=t||m.plainText||m.text||"";});' +
-          's[String(d.sideId).toLowerCase()]=t;});' +
-          'var a=s.word||s["1"],b=s.definition||s["2"];if(a&&b)out.push([a,b]);return;}' +
-        'if(typeof n.word==="string"&&typeof n.definition==="string"){out.push([n.word,n.definition]);return;}' +
-        'Object.keys(n).forEach(function(k){walk(n[k]);});' +
-      '}' +
-      'var tag=document.getElementById("__NEXT_DATA__");' +
-      'if(tag){try{walk(JSON.parse(tag.textContent));}catch(e){}}' +
-      'if(out.length<2){var q=document.querySelectorAll(".TermText,[class*=\'TermText\']");' +
-        'for(var i=0;i+1<q.length;i+=2)out.push([q[i].innerText.trim(),q[i+1].innerText.trim()]);}' +
-      'out=out.filter(function(p){return p[0]&&p[1];});' +
-      'if(!out.length){alert("Keine Karten gefunden. Seite ganz laden und erneut versuchen.");return;}' +
-      'var text=out.map(function(p){return p[0]+" ; "+p[1];}).join("\\n");' +
-      'var payload={t:(document.title||"Quizlet-Set").replace(/\\s*[|\\u2013-].*$/,"").trim(),d:"",c:out};' +
-      'var code=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");' +
-      'var app=' + JSON.stringify(app) + ';' +
-      'var w=null;' +
-      'if(/^https?:/.test(app)&&code.length<60000){w=window.open(app+"#/import?d="+code,"_blank");}' +
-      'if(!w){if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){' +
-        'alert(out.length+" Karten kopiert. In QuizFree unter Text einfuegen.");},function(){prompt("Karten kopieren:",text);});}' +
-        'else{prompt("Karten kopieren:",text);}}' +
-      '})();';
+    return [
+      '(function(){',
+      '  var app = ' + JSON.stringify(app) + ';',
+      '  var out = [], seen = new Set(), keys = {};',
+      '  function add(a, b) {',
+      '    a = String(a || "").replace(/\\s+/g, " ").trim();',
+      '    b = String(b || "").replace(/\\s+/g, " ").trim();',
+      '    if (!a || !b) return;',
+      '    var k = a + "\\u0000" + b;',
+      '    if (keys[k]) return;',
+      '    keys[k] = 1;',
+      '    out.push([a, b]);',
+      '  }',
+      '  function walk(n) {',
+      '    if (!n || typeof n !== "object" || seen.has(n)) return;',
+      '    seen.add(n);',
+      '    if (Array.isArray(n)) { n.forEach(walk); return; }',
+      '    if (Array.isArray(n.cardSides)) {',
+      '      var s = {};',
+      '      n.cardSides.forEach(function (d) {',
+      '        var t = "";',
+      '        (d.media || []).forEach(function (m) { t = t || m.plainText || m.text || ""; });',
+      '        s[String(d.sideId).toLowerCase()] = t;',
+      '      });',
+      '      add(s.word || s["1"], s.definition || s["2"]);',
+      '      return;',
+      '    }',
+      '    if (typeof n.word === "string" && typeof n.definition === "string") { add(n.word, n.definition); return; }',
+      '    Object.keys(n).forEach(function (k) { walk(n[k]); });',
+      '  }',
+      '  // 1) JSON, das die Seite mitliefert',
+      '  Array.prototype.forEach.call(document.querySelectorAll("script"), function (tag) {',
+      '    var text = tag.textContent || "";',
+      '    if (text.length < 40) return;',
+      '    if (text.indexOf("cardSides") < 0 && text.indexOf("definition") < 0) return;',
+      '    var json = text.slice(text.indexOf("{"));',
+      '    try { walk(JSON.parse(json)); } catch (e) {}',
+      '  });',
+      '  // 2) Rohsuche im Quelltext',
+      '  if (out.length < 2) {',
+      '    var html = document.documentElement.innerHTML, m;',
+      '    var re = /"word"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"[\\s\\S]{0,400}?"definition"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/g;',
+      '    var un = function (v) { try { return JSON.parse(\'"\' + v + \'"\'); } catch (e) { return v; } };',
+      '    while ((m = re.exec(html)) !== null) add(un(m[1]), un(m[2]));',
+      '  }',
+      '  // 3) Sichtbare Karten auf der Seite',
+      '  if (out.length < 2) {',
+      '    var rows = document.querySelectorAll(\'[class*="SetPageTerm-content"],[class*="SetPageTerms-term"],[class*="TermsListRow"],li\');',
+      '    Array.prototype.forEach.call(rows, function (row) {',
+      '      var parts = Array.prototype.map.call(row.querySelectorAll(\'.TermText,[class*="TermText"]\'),',
+      '        function (n) { return n.innerText; }).filter(Boolean);',
+      '      if (parts.length >= 2) add(parts[0], parts[1]);',
+      '    });',
+      '  }',
+      '  if (out.length < 2) {',
+      '    var q = document.querySelectorAll(\'.TermText,[class*="TermText"]\');',
+      '    for (var i = 0; i + 1 < q.length; i += 2) add(q[i].innerText, q[i + 1].innerText);',
+      '  }',
+      '  if (!out.length) { alert("Keine Karten gefunden. Set-Seite ganz nach unten scrollen und erneut versuchen."); return; }',
+      '  var title = (document.title || "Quizlet-Set")',
+      '    .replace(/\\s*\\|.*$/, "")',
+      '    .replace(/\\s*[-\\u2013\\u2014]\\s*Quizlet.*$/i, "")',
+      '    .replace(/\\s*(Karteikarten|Flashcards|Lernsets?)\\s*$/i, "").trim();',
+      '  var code = btoa(unescape(encodeURIComponent(JSON.stringify({ t: title, d: "", c: out }))))',
+      '    .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");',
+      '  var win = null;',
+      '  if (code.length < 30000) { try { win = window.open(app + "#/import?d=" + code, "_blank"); } catch (e) {} }',
+      '  if (win) return;',
+      '  // Aus der Konsole darf kein Fenster aufgehen. Daten an window.name haengen',
+      '  // (ueberlebt den Seitenwechsel) und im selben Tab zu QuizFree wechseln.',
+      '  try {',
+      '    window.name = "quizfree:" + code;',
+      '    location.href = app + "#/import";',
+      '    return;',
+      '  } catch (e) {}',
+      '  prompt(out.length + " Karten - kopieren und in QuizFree unter Text einfuegen:",',
+      '    out.map(function (p) { return p[0] + " ; " + p[1]; }).join("\\n"));',
+      '})();'
+    ].join('\n');
   }
 
   /** Anleitung mit Code zum Kopieren und Lesezeichen zum Ziehen. */
@@ -210,7 +261,7 @@ window.App = window.App || {};
       { icon: 'link', text: 'Das Set bei Quizlet öffnen und bis ans Ende scrollen.' },
       { icon: 'terminal', text: 'Konsole öffnen: F12, dann Reiter „Console“.' },
       { icon: 'paste', text: 'Code einfügen und Enter drücken. Fragt der Browser danach, erst „allow pasting“ tippen.' },
-      { icon: 'check-circle', text: 'Die Karten landen automatisch hier.' }
+      { icon: 'check-circle', text: 'Die Seite wechselt von selbst zu QuizFree – dort nur noch speichern.' }
     ].forEach(function (step) {
       steps.appendChild(el('li', { class: 'steps__item' }, [
         el('span', { class: 'steps__icon' }, [u.icon(step.icon)]),
@@ -745,8 +796,17 @@ window.App = window.App || {};
   /* ==================== Import über Link (#/import?d=) ==================== */
 
   function renderImport(host, segments, query) {
-    if (!query.d) { App.ui.go('#/new'); return; }
-    var set = App.store.decodeSet(query.d);
+    var code = query.d;
+
+    // Der Quizlet-Helfer reicht große Sets über window.name weiter,
+    // weil die Adresszeile dafür zu kurz sein kann.
+    if (!code && /^quizfree:/.test(window.name || '')) {
+      code = window.name.slice('quizfree:'.length);
+      try { window.name = ''; } catch (error) { /* egal */ }
+    }
+
+    if (!code) { App.ui.go('#/new'); return; }
+    var set = App.store.decodeSet(code);
     if (!set) { host.appendChild(App.ui.empty('alert', 'Link nicht lesbar')); return; }
     previewImport({ title: set.title, cards: set.cards, source: 'Geteilter Link' });
     renderHome(host);
