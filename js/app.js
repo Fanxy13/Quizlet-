@@ -4,6 +4,10 @@
 (function (App) {
   'use strict';
 
+  // Muss zum ?v=... in index.html passen - daran erkennt man, ob der
+  // Browser wirklich die neueste Fassung geladen hat.
+  App.VERSION = '1.4';
+
   function boot() {
     App.registerPages();
     App.ui.register('study', App.study.route);

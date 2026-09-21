@@ -170,6 +170,7 @@ window.App = window.App || {};
   function quizletSnippet() {
     var app = location.href.split('#')[0];
     return [
+      '// QuizFree-Helfer ' + (App.VERSION || '') + ' - liest die Karten dieser Seite',
       '(function(){',
       '  var app = ' + JSON.stringify(app) + ';',
       '  var out = [], seen = new Set(), keys = {};',
@@ -937,6 +938,7 @@ window.App = window.App || {};
       class: 'hint hint--center',
       text: 'Alles bleibt in diesem Browser – nichts wird hochgeladen. Für ein anderes Gerät: sichern und dort laden, oder ein Set als Link teilen.'
     }));
+    host.appendChild(el('p', { class: 'hint hint--center', text: 'Version ' + (App.VERSION || '?') }));
   }
 
   /* ==================== Registrierung ==================== */

@@ -136,3 +136,11 @@ js/modes/           study.js (Basis) + flashcards, learn, write, test, match
 ```
 
 Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Werkzeug.
+
+### Version
+
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.4`),
+damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
+nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
+`js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter
+**Einstellungen** ganz unten.
