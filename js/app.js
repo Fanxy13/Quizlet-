@@ -6,7 +6,7 @@
 
   // Muss zum ?v=... in index.html passen - daran erkennt man, ob der
   // Browser wirklich die neueste Fassung geladen hat.
-  App.VERSION = '2.0';
+  App.VERSION = '2.1';
 
   // Verweise auf das Projekt - einmal hier, benutzt von Leiste und Einstellungen
   App.LINKS = {

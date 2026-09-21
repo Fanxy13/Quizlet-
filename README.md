@@ -64,7 +64,7 @@ abwechselnde Zeilen (Begriff / Definition / Begriff / …).
 
 ### 3. Prompt für eine KI
 
-Fertiger Prompt für ChatGPT, Claude & Co.: Thema eintragen, Kartenzahl und
+Fertiger Prompt für ChatGPT & Co.: Thema eintragen, Kartenzahl und
 Trennzeichen wählen, kopieren, in den Chat einfügen. Die Antwort kommt im
 richtigen Format zurück und wird unter **Text** eingesetzt. Semikolon ist
 voreingestellt, weil Tabulatoren beim Kopieren aus einem Chat oft verloren gehen.
@@ -139,7 +139,7 @@ und erscheinen unten in der Navigationsleiste sowie unter **Einstellungen → Pr
 
 ### Version
 
-Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=2.0`),
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=2.1`),
 damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
 nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
 `js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter

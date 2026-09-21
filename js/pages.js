@@ -413,7 +413,7 @@ window.App = window.App || {};
           ], 'separator')
         ]),
         output,
-        el('p', { class: 'hint', text: 'Kopieren → in ChatGPT, Claude o. Ä. einfügen → Antwort der KI kopieren → hier unter „Text“ einsetzen. Semikolon überlebt das Kopieren aus einem Chat am zuverlässigsten.' })
+        el('p', { class: 'hint', text: 'Kopieren → in einen KI-Chat einfügen → Antwort der KI kopieren → hier unter „Text“ einsetzen. Semikolon überlebt das Kopieren aus einem Chat am zuverlässigsten.' })
       ],
       actions: [
         el('button', { class: 'btn', type: 'button', onclick: function () { dialog.close(); openTextImport(); } },
