@@ -59,13 +59,24 @@ window.App = window.App || {};
     railHost.appendChild(nav);
 
     var theme = App.store.settings().theme;
-    railHost.appendChild(el('button', {
-      class: 'rail__link rail__link--end',
-      type: 'button',
-      title: theme === 'light' ? 'Dunkel' : 'Hell',
-      'aria-label': 'Design wechseln',
-      onclick: toggleTheme
-    }, [u.icon(theme === 'light' ? 'moon' : 'sun')]));
+    var links = (App.LINKS || {});
+    railHost.appendChild(el('div', { class: 'rail__bottom' }, [
+      el('a', {
+        class: 'rail__link',
+        href: links.profile || 'https://github.com/',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'GitHub-Profil',
+        'aria-label': 'GitHub-Profil'
+      }, [u.icon('github')]),
+      el('button', {
+        class: 'rail__link',
+        type: 'button',
+        title: theme === 'light' ? 'Dunkel' : 'Hell',
+        'aria-label': 'Design wechseln',
+        onclick: toggleTheme
+      }, [u.icon(theme === 'light' ? 'moon' : 'sun')])
+    ]));
   }
 
   /* ---------- Bausteine ---------- */

@@ -140,10 +140,12 @@ js/modes/           study.js (Basis) + flashcards, learn, write, test, match, sp
 ```
 
 Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Werkzeug.
+Die Verweise auf Profil und Quelltext stehen gesammelt in `App.LINKS` (js/app.js)
+und erscheinen unten in der Navigationsleiste sowie unter **Einstellungen → Projekt**.
 
 ### Version
 
-Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.9`),
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=2.0`),
 damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
 nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
 `js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter

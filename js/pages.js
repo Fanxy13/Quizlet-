@@ -945,6 +945,19 @@ window.App = window.App || {};
       el('div', { class: 'setting' }, [
         el('span', { class: 'setting__label', text: 'Speicher' }),
         storagePanel()
+      ]),
+      el('div', { class: 'setting' }, [
+        el('span', { class: 'setting__label', text: 'Projekt' }),
+        el('div', { class: 'choice' }, [
+          el('a', {
+            class: 'choice__item', href: (App.LINKS || {}).profile || '#',
+            target: '_blank', rel: 'noopener noreferrer', title: 'GitHub-Profil'
+          }, [u.icon('github'), el('span', { text: 'Fanxy13' })]),
+          el('a', {
+            class: 'choice__item', href: (App.LINKS || {}).repo || '#',
+            target: '_blank', rel: 'noopener noreferrer', title: 'Quelltext auf GitHub'
+          }, [u.icon('code'), el('span', { text: 'Quelltext' })])
+        ])
       ])
     ]));
     host.appendChild(el('p', {

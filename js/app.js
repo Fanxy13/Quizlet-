@@ -6,7 +6,13 @@
 
   // Muss zum ?v=... in index.html passen - daran erkennt man, ob der
   // Browser wirklich die neueste Fassung geladen hat.
-  App.VERSION = '1.9';
+  App.VERSION = '2.0';
+
+  // Verweise auf das Projekt - einmal hier, benutzt von Leiste und Einstellungen
+  App.LINKS = {
+    profile: 'https://github.com/Fanxy13',
+    repo: 'https://github.com/Fanxy13/Quizlet-'
+  };
 
   function boot() {
     App.registerPages();

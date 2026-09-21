@@ -149,6 +149,15 @@ button, input, textarea { font: inherit; color: inherit; }
 .rail__link--end { margin-top: auto; }
 .rail__label { display: none; }
 
+/* Fußbereich der Leiste: GitHub und Design-Schalter */
+.rail__bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 /* ============================ 3 Bausteine =============================== */
 
 .topbar {
@@ -1228,8 +1237,9 @@ button, input, textarea { font: inherit; color: inherit; }
   }
   .rail__logo { display: none; }
   .rail__nav { flex-direction: row; justify-content: space-around; }
-  .rail__link { width: 56px; height: 44px; }
+  .rail__link { width: 52px; height: 44px; }
   .rail__link--end { margin: 0; }
+  .rail__bottom { margin: 0; flex-direction: row; gap: 0; }
 
   .view { padding-bottom: 96px; }
 
