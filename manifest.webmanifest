@@ -1,7 +1,7 @@
 {
   "name": "QuizFree – Karteikarten lernen",
   "short_name": "QuizFree",
-  "description": "Link einfügen, sofort abgefragt werden. Kostenlos, ohne Konto.",
+  "description": "Karten per Lesezeichen von Quizlet holen und sofort abgefragt werden. Kostenlos, ohne Konto.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a092d",

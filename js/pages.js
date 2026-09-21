@@ -68,50 +68,6 @@ window.App = window.App || {};
     });
   }
 
-  /** Link importieren, mit Status-Anzeige direkt am Eingabefeld. */
-  function runLinkImport(url, statusNode, button) {
-    if (!url.trim()) { u.toast('Link fehlt', 'alert'); return; }
-    if (button) button.disabled = true;
-    statusNode.className = 'status status--busy';
-    u.clear(statusNode);
-    statusNode.appendChild(el('span', { class: 'spinner' }));
-    var label = el('span', { text: 'Wird geladen …' });
-    statusNode.appendChild(label);
-
-    App.importer.fromLink(url, function (step) { label.textContent = step; })
-      .then(function (result) {
-        statusNode.className = 'status status--ok';
-        u.clear(statusNode);
-        statusNode.appendChild(u.icon('check-circle'));
-        statusNode.appendChild(el('span', { text: result.cards.length + ' Karten' }));
-        previewImport(result);
-      })
-      .catch(function (error) {
-        statusNode.className = 'status status--error';
-        u.clear(statusNode);
-        statusNode.appendChild(u.icon('alert'));
-        statusNode.appendChild(el('span', {
-          text: error.message || 'Import fehlgeschlagen',
-          title: error.details || ''
-        }));
-        if (error.quizlet || App.importer.isQuizlet(url)) {
-          statusNode.appendChild(el('button', {
-            class: 'btn btn--primary btn--sm', type: 'button',
-            onclick: function () { openQuizletHelper(); }
-          }, [u.icon('terminal'), el('span', { text: 'Quizlet-Helfer' })]));
-        }
-        statusNode.appendChild(el('button', {
-          class: 'btn btn--ghost btn--sm', type: 'button',
-          onclick: function () { openTextImport(); }
-        }, [u.icon('paste'), el('span', { text: 'Text einfügen' })]));
-        statusNode.appendChild(el('button', {
-          class: 'btn btn--ghost btn--sm', type: 'button',
-          onclick: function () { openPromptHelper(); }
-        }, [u.icon('wand'), el('span', { text: 'KI-Prompt' })]));
-      })
-      .finally(function () { if (button) button.disabled = false; });
-  }
-
   /** Karten aus eingefügtem Text (Tab, Komma, Bindestrich oder Zeilenwechsel). */
   function openTextImport(prefill) {
     var area = el('textarea', {
@@ -285,6 +241,21 @@ window.App = window.App || {};
     ].join('\n');
   }
 
+  /** Ziehbares Lesezeichen mit dem Helfer-Code. */
+  function bookmarkletLink(label) {
+    var link = el('a', {
+      class: 'chip chip--drag',
+      title: 'In die Lesezeichenleiste ziehen',
+      draggable: 'true'
+    }, [u.icon('star'), el('span', { text: label || 'QuizFree-Import' })]);
+    link.setAttribute('href', 'javascript:' + encodeURIComponent(quizletSnippet()));
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      u.toast('Nach oben in die Lesezeichenleiste ziehen', 'info');
+    });
+    return link;
+  }
+
   /** Anleitung mit Code zum Kopieren und Lesezeichen zum Ziehen. */
   function openQuizletHelper() {
     var code = quizletSnippet();
@@ -304,22 +275,13 @@ window.App = window.App || {};
       ]));
     });
 
-    var bookmarklet = el('a', {
-      class: 'chip chip--drag',
-      title: 'In die Lesezeichenleiste ziehen',
-      draggable: 'true'
-    }, [u.icon('star'), el('span', { text: 'QuizFree-Import' })]);
-    bookmarklet.setAttribute('href', 'javascript:' + encodeURIComponent(code));
-    bookmarklet.addEventListener('click', function (event) {
-      event.preventDefault();
-      u.toast('In die Lesezeichenleiste ziehen', 'info');
-    });
+    var bookmarklet = bookmarkletLink();
 
     App.ui.modal({
       title: 'Quizlet-Helfer',
       icon: 'terminal',
       body: [
-        el('p', { class: 'hint', text: 'Quizlet sperrt fremde Abrufe. Dieser Code läuft in deinem eigenen Browser auf der Quizlet-Seite – dort greift die Sperre nicht.' }),
+        el('p', { class: 'hint', text: 'Quizlet sperrt Abrufe von außen. Dieser Code läuft in deinem eigenen Browser auf der Quizlet-Seite – dort greift keine Sperre, und private Sets gehen ebenfalls.' }),
         steps,
         output,
         el('div', { class: 'chips chips--left' }, [
@@ -465,43 +427,48 @@ window.App = window.App || {};
     });
   }
 
+  /** Karte mit dem Lesezeichen - der Hauptweg, um Karten hereinzuholen. */
+  function importCard(compact) {
+    var drag = bookmarkletLink();
+    return el('section', { class: 'importcard' + (compact ? ' importcard--compact' : '') }, [
+      el('div', { class: 'importcard__head' }, [
+        el('div', { class: 'importcard__icon' }, [u.icon('cards')]),
+        el('div', {}, [
+          el('h2', { class: 'importcard__title', text: 'Karten von Quizlet holen' }),
+          el('p', { class: 'importcard__hint', text: 'Einmal in die Lesezeichenleiste ziehen, dann auf jeder Set-Seite anklicken.' })
+        ])
+      ]),
+      el('div', { class: 'importcard__actions' }, [
+        drag,
+        el('button', { class: 'btn', type: 'button', onclick: function () { openQuizletHelper(); } },
+          [u.icon('terminal'), el('span', { class: 'btn__label', text: 'Anleitung' })])
+      ])
+    ]);
+  }
+
   function renderHome(host) {
     var sets = App.store.allSets();
 
-    var input = el('input', {
-      class: 'hero__input', type: 'url', inputmode: 'url', spellcheck: 'false',
-      placeholder: 'https://quizlet.com/…',
-      'aria-label': 'Link zu einem Lernset'
-    });
-    var status = el('div', { class: 'status' });
-    var submit = el('button', { class: 'hero__go', type: 'button', 'aria-label': 'Importieren', title: 'Importieren' }, [u.icon('arrow-right')]);
+    host.appendChild(el('section', { class: 'hero' }, [
+      el('div', { class: 'hero__mark' }, [u.icon('logo')])
+    ]));
 
-    submit.addEventListener('click', function () { runLinkImport(input.value, status, submit); });
-    input.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') runLinkImport(input.value, status, submit);
-    });
+    host.appendChild(importCard());
 
-    var hero = el('section', { class: 'hero' }, [
-      el('div', { class: 'hero__mark' }, [u.icon('logo')]),
-      el('div', { class: 'hero__field' }, [u.icon('link'), input, submit]),
-      status,
-      el('div', { class: 'chips' }, [
-        el('button', { class: 'chip', type: 'button', title: 'Text einfügen', onclick: function () { openTextImport(); } },
-          [u.icon('paste'), el('span', { text: 'Text' })]),
-        el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } },
-          [u.icon('wand'), el('span', { text: 'Prompt' })]),
-        el('button', { class: 'chip', type: 'button', title: 'Datei laden (CSV/TXT)', onclick: pickFile },
-          [u.icon('upload'), el('span', { text: 'Datei' })]),
-        el('a', { class: 'chip', href: '#/edit/new', title: 'Selbst schreiben' },
-          [u.icon('plus'), el('span', { text: 'Neu' })]),
-        el('button', { class: 'chip', type: 'button', title: 'Demo-Set laden', onclick: function () {
-          var set = App.store.saveSet(demoSet());
-          App.ui.go('#/set/' + set.id);
-        } }, [u.icon('sparkles'), el('span', { text: 'Demo' })])
-      ])
-    ]);
-
-    host.appendChild(hero);
+    host.appendChild(el('div', { class: 'chips' }, [
+      el('button', { class: 'chip', type: 'button', title: 'Text einfügen', onclick: function () { openTextImport(); } },
+        [u.icon('paste'), el('span', { text: 'Text' })]),
+      el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } },
+        [u.icon('wand'), el('span', { text: 'Prompt' })]),
+      el('button', { class: 'chip', type: 'button', title: 'Datei laden (CSV/TXT)', onclick: pickFile },
+        [u.icon('upload'), el('span', { text: 'Datei' })]),
+      el('a', { class: 'chip', href: '#/edit/new', title: 'Selbst schreiben' },
+        [u.icon('plus'), el('span', { text: 'Neu' })]),
+      el('button', { class: 'chip', type: 'button', title: 'Demo-Set laden', onclick: function () {
+        var set = App.store.saveSet(demoSet());
+        App.ui.go('#/set/' + set.id);
+      } }, [u.icon('sparkles'), el('span', { text: 'Demo' })])
+    ]));
 
     // Was die App kann - als Symbolreihe statt als Fließtext
     host.appendChild(el('div', { class: 'teaser' }, MODES.map(function (mode) {
@@ -522,8 +489,6 @@ window.App = window.App || {};
         el('div', { class: 'grid' }, recent.map(setCard))
       ]));
     }
-
-    setTimeout(function () { input.focus(); }, 80);
   }
 
   function pickFile() {
@@ -551,27 +516,21 @@ window.App = window.App || {};
     picker.click();
   }
 
-  /* ==================== Neu / Link ==================== */
+  /* ==================== Karten hinzufügen ==================== */
 
   function renderNew(host) {
-    var input = el('input', { class: 'hero__input', type: 'url', spellcheck: 'false', placeholder: 'https://quizlet.com/…' });
-    var status = el('div', { class: 'status' });
-    var submit = el('button', { class: 'hero__go', type: 'button', 'aria-label': 'Importieren' }, [u.icon('arrow-right')]);
-    submit.addEventListener('click', function () { runLinkImport(input.value, status, submit); });
-    input.addEventListener('keydown', function (event) { if (event.key === 'Enter') runLinkImport(input.value, status, submit); });
-
-    host.appendChild(App.ui.topbar({ title: 'Neues Set', back: '#/' }));
-    host.appendChild(el('section', { class: 'hero hero--compact' }, [
-      el('div', { class: 'hero__field' }, [u.icon('link'), input, submit]),
-      status,
-      el('div', { class: 'chips' }, [
-        el('button', { class: 'chip', type: 'button', onclick: function () { openTextImport(); } }, [u.icon('paste'), el('span', { text: 'Text' })]),
-        el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } }, [u.icon('wand'), el('span', { text: 'Prompt' })]),
-        el('button', { class: 'chip', type: 'button', onclick: pickFile }, [u.icon('upload'), el('span', { text: 'Datei' })]),
-        el('a', { class: 'chip', href: '#/edit/new' }, [u.icon('plus'), el('span', { text: 'Leer' })])
-      ])
+    host.appendChild(App.ui.topbar({ title: 'Karten hinzufügen', back: '#/' }));
+    host.appendChild(importCard(true));
+    host.appendChild(el('div', { class: 'chips chips--left' }, [
+      el('button', { class: 'chip', type: 'button', onclick: function () { openTextImport(); } },
+        [u.icon('paste'), el('span', { text: 'Text einfügen' })]),
+      el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } },
+        [u.icon('wand'), el('span', { text: 'Von einer KI erstellen lassen' })]),
+      el('button', { class: 'chip', type: 'button', onclick: pickFile },
+        [u.icon('upload'), el('span', { text: 'Datei laden' })]),
+      el('a', { class: 'chip', href: '#/edit/new' },
+        [u.icon('plus'), el('span', { text: 'Selbst schreiben' })])
     ]));
-    setTimeout(function () { input.focus(); }, 80);
   }
 
   /* ==================== Bibliothek ==================== */
@@ -983,6 +942,7 @@ window.App = window.App || {};
     openTextImport: openTextImport,
     openPromptHelper: openPromptHelper,
     openQuizletHelper: openQuizletHelper,
+    bookmarkletLink: bookmarkletLink,
     quizletSnippet: quizletSnippet,
     buildPrompt: buildPrompt,
     previewImport: previewImport,

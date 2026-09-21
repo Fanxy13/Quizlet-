@@ -1,7 +1,8 @@
 # QuizFree
 
-Ein kostenloser Quizlet-Klon: Link einfügen, Karten werden importiert, und du wirst
-sofort abgefragt. Kein Konto, kein Server, keine Bezahlschranke – alles läuft im Browser.
+Ein kostenloser Quizlet-Klon: Karten per Lesezeichen von Quizlet holen oder einfügen,
+und sofort abgefragt werden. Kein Konto, kein Server, keine Bezahlschranke – alles
+läuft im Browser.
 
 ## Starten
 
@@ -24,79 +25,54 @@ Dazu: Sets selbst anlegen und bearbeiten, Karten markieren (Stern), Seiten tausc
 mischen, Fortschritt zurücksetzen, CSV-Export, komplettes Backup als JSON,
 helles und dunkles Design, Tastatursteuerung, Sprachausgabe.
 
-## Karten importieren
+## Karten hereinholen
 
-Vier Wege, alle über die Startseite:
+Die App ruft keine fremden Seiten mehr ab. Quizlet sperrt das (Cloudflare), und
+die bekannten Open-Source-Werkzeuge sind aus demselben Grund davon abgerückt –
+`quizlet-fetcher` etwa hat das Herunterladen in 1.1.0 entfernt („You'll need to
+provide the webpage yourself"). Karten kommen deshalb auf vier Wegen herein:
 
-1. **Link** – z. B. ein Quizlet-Set. Die App liest die Seite und zieht die Karten heraus.
-2. **Text** – eingefügte Liste. Erkannt werden Tab, `;`, `|`, `-`, `=`, `:`, Komma
-   und abwechselnde Zeilen (Begriff / Definition / Begriff / …).
-3. **Prompt** – fertiger Prompt für ChatGPT, Claude & Co. Thema eintragen,
-   Kartenzahl und Trennzeichen wählen, kopieren, in den Chat einfügen. Die Antwort
-   kommt in genau dem Format zurück, das der Importer liest, und wird unter **Text**
-   eingesetzt. Semikolon ist voreingestellt, weil Tabulatoren beim Kopieren aus
-   einem Chat oft verloren gehen.
-4. **Datei** – CSV, TSV, TXT oder ein JSON-Backup.
-5. **Neu** – Karten selbst schreiben.
+### 1. Lesezeichen (Hauptweg, für Quizlet)
 
-Jedes Set lässt sich als Link teilen: Der Link enthält das ganze Set (Base64 im Hash),
-es wird also nichts hochgeladen.
+Auf der Startseite steht **QuizFree-Import** als ziehbares Lesezeichen. Einmal in
+die Lesezeichenleiste ziehen, dann auf einer beliebigen Quizlet-Set-Seite
+anklicken – die Karten öffnen sich als Import in QuizFree. Wer keine
+Lesezeichenleiste nutzt, findet unter **Anleitung** denselben Code zum Einfügen
+in die Browser-Konsole (F12).
 
-### Wie der Link-Import arbeitet
-
-Ein Browser darf fremde Seiten nicht selbst laden (CORS), also laufen die Anfragen
-über Read-Proxys. Acht Wege werden **gleichzeitig** angestoßen, der erste brauchbare
-gewinnt (direkter Abruf, AllOrigins ×2, corsproxy.io, codetabs, whateverorigin,
-Internet Archive, r.jina.ai). Sperrseiten von Cloudflare werden erkannt und
-verworfen, statt sie als Inhalt zu behandeln.
-
-Bei einer Quizlet-Adresse wird zuerst die Set-Nummer aus dem Link gezogen und
-Quizlets eigene JSON-Schnittstelle abgefragt (`webapi/3.4/studiable-item-documents`,
-500 Karten pro Seite, mit Seitenweise-Abruf). Das liefert auch bei langen Sets alle
-Karten – die Set-Seite selbst lädt nur einen Teil. Erst danach folgen die Set-Seite
-und der Archiv-Schnappschuss.
-
-Parser: Quizlet (aktuelles `__NEXT_DATA__`-Format, älteres `window.Quizlet`-Format
-und die JSON-Schnittstelle), Tabellen und Definitionslisten beliebiger Seiten,
-sowie reine Textlisten.
-
-### Wenn Quizlet trotzdem blockt
-
-Quizlet steht hinter Cloudflare und sperrt Abrufe aus Rechenzentren – bei manchen
-Sets scheitern deshalb alle Proxys. Dafür gibt es den **Quizlet-Helfer**
-(erscheint automatisch in der Fehlermeldung):
-
-1. Set bei Quizlet im eigenen Browser öffnen und ganz nach unten scrollen
-2. Konsole öffnen (F12), den angebotenen Code einfügen, Enter
-   (Chrome verlangt beim ersten Mal, dass man `allow pasting` tippt)
-3. Die Seite wechselt zu QuizFree, die Karten stehen als Import bereit
-
-Der Code versucht vier Wege der Reihe nach:
+Der Code läuft in der bereits geöffneten Quizlet-Seite und versucht vier Quellen:
 
 1. **Quizlets Schnittstelle mit deiner Sitzung** – `fetch(..., {credentials: "include"})`
-   auf `webapi/3.4/studiable-item-documents`. Weil die Anfrage von der Quizlet-Seite
-   selbst kommt, gehen deine Cookies mit: die Antwort enthält **alle** Karten,
-   auch ungescrollte, und private Sets funktionieren ebenfalls.
+   auf `webapi/3.4/studiable-item-documents`. Cookies gehen mit, also kommen
+   **alle** Karten an, auch ungescrollte, und private Sets funktionieren ebenfalls.
 2. eingebettetes JSON der Seite
 3. Rohsuche im Quelltext
 4. die sichtbaren Karten im Seiteninhalt
 
 Die Übergabe läuft über die Adresszeile; ist das Set dafür zu groß oder blockt der
-Browser das neue Fenster (aus der Konsole heraus ist das immer so), wandern die
-Daten über `window.name` und die Seite wechselt im selben Tab.
+Browser das neue Fenster (aus der Konsole heraus immer), wandern die Daten über
+`window.name` und die Seite wechselt im selben Tab.
 
-Zum Stand der Technik: Genau dieser Endpunkt wird auch von den bekannten
-Open-Source-Werkzeugen benutzt, antwortet von außen aber mit `403`. `quizlet-fetcher`
-hat das Herunterladen deshalb in Version 1.1.0 entfernt („You'll need to provide the
-webpage yourself"), und im meistgenutzten Gist dazu rät der Autor, Cookies
-mitzuschicken. Deshalb läuft der Abruf hier im Browser des Nutzers. Übernommen
-wurde nur das Vorgehen, kein fremder Code – der Gist steht unter keiner Lizenz.
+Übernommen wurde nur das Vorgehen, kein fremder Code.
 
-Der Code läuft in der bereits geladenen Seite, also in einer ganz normalen
-Browser-Sitzung. Es gibt keinen Proxy, den Cloudflare blocken könnte. Wahlweise
-lässt sich derselbe Code einmalig als Lesezeichen ablegen – dann genügt künftig
-ein Klick auf der Quizlet-Seite. Private Sets funktionieren so ebenfalls, solange
-man selbst angemeldet ist.
+### 2. Text einfügen
+
+Eingefügte Liste. Erkannt werden Tab, `;`, `|`, `-`, `=`, `:`, Komma und
+abwechselnde Zeilen (Begriff / Definition / Begriff / …).
+
+### 3. Prompt für eine KI
+
+Fertiger Prompt für ChatGPT, Claude & Co.: Thema eintragen, Kartenzahl und
+Trennzeichen wählen, kopieren, in den Chat einfügen. Die Antwort kommt im
+richtigen Format zurück und wird unter **Text** eingesetzt. Semikolon ist
+voreingestellt, weil Tabulatoren beim Kopieren aus einem Chat oft verloren gehen.
+
+### 4. Datei oder selbst schreiben
+
+CSV, TSV, TXT, ein JSON-Backup – oder Karten im Editor eintippen.
+
+Jedes Set lässt sich als Link teilen: Der Link enthält das ganze Set (Base64 im
+Hash), es wird also nichts hochgeladen.
 
 ## Tastatur
 
@@ -144,7 +120,7 @@ index.html          Grundgerüst und Icon-Sprite (alle Symbole inline)
 css/style.css       komplettes Design, hell und dunkel
 js/util.js          DOM-Helfer, Antwortprüfung, Töne, Sprachausgabe
 js/store.js         localStorage: Sets, Fortschritt, Einstellungen, Teilen-Links
-js/importer.js      Link- und Textimport samt Parsern
+js/importer.js      Parser für eingefügten Text und Dateien
 js/ui.js            Navigation, Router, Dialoge, gemeinsame Bausteine
 js/pages.js         Start, Bibliothek, Set-Übersicht, Editor, Einstellungen
 js/modes/           study.js (Basis) + flashcards, learn, write, test, match
@@ -154,7 +130,7 @@ Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Werkzeug.
 
 ### Version
 
-Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.4`),
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.6`),
 damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
 nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
 `js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter

@@ -34,7 +34,7 @@ window.App = window.App || {};
 
   var NAV = [
     { icon: 'home', route: '#/', title: 'Start' },
-    { icon: 'link', route: '#/new', title: 'Set aus Link' },
+    { icon: 'plus', route: '#/new', title: 'Karten hinzufügen' },
     { icon: 'library', route: '#/library', title: 'Meine Sets' },
     { icon: 'settings', route: '#/settings', title: 'Einstellungen' }
   ];
@@ -211,6 +211,11 @@ window.App = window.App || {};
     if (currentCleanup) { try { currentCleanup(); } catch (error) { /* egal */ } currentCleanup = null; }
     if (currentKeyHandler) { document.removeEventListener('keydown', currentKeyHandler); currentKeyHandler = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    // Offene Dialoge gehören zur verlassenen Seite
+    u.qsa('.modal').forEach(function (node) {
+      if (node.parentNode) node.parentNode.removeChild(node);
+    });
 
     var route = parseHash();
     var name = route.segments[0] || 'home';

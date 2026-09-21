@@ -1336,3 +1336,44 @@ button, input, textarea { font: inherit; color: inherit; }
   cursor: grab;
 }
 .chip--drag:active { cursor: grabbing; }
+
+/* --- Karte für den Import per Lesezeichen --- */
+
+.importcard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(620px, 100%);
+  margin: 0 auto;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.importcard--compact { margin: 0 0 16px; box-shadow: none; }
+.importcard__head { display: flex; align-items: center; gap: 14px; }
+.importcard__icon {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: var(--accent);
+  color: #fff;
+}
+.importcard__icon .icon { width: 26px; height: 26px; }
+.importcard__title { font-size: 17px; font-weight: 800; }
+.importcard__hint { color: var(--muted); font-size: 13px; }
+.importcard__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.importcard__actions .chip--drag {
+  flex: 1;
+  min-height: 46px;
+  justify-content: center;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 15px;
+}
+:root[data-theme="dark"] .importcard__actions .chip--drag { color: #aab2ff; }
+.importcard__actions .chip--drag .icon { width: 20px; height: 20px; }
