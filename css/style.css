@@ -1268,3 +1268,34 @@ button, input, textarea { font: inherit; color: inherit; }
   font-size: 15px;
   font-weight: 800;
 }
+
+/* --- Speicher-Übersicht --- */
+
+.storage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.storage__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+.storage__status--good { color: var(--good); }
+.storage__status--ok { color: var(--text); }
+.storage__status--bad { color: var(--bad); }
+.storage__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.storage__row { display: flex; align-items: center; gap: 8px; }
+.storage__row .icon { width: 17px; height: 17px; }
+.storage__meta .hint { width: 100%; margin: 0; }

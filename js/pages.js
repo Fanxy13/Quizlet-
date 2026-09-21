@@ -657,6 +657,63 @@ window.App = window.App || {};
 
   /* ==================== Einstellungen ==================== */
 
+  /** Speicher-Übersicht: Zustand, Umfang, Sicherung. */
+  function storagePanel() {
+    var status = el('div', { class: 'storage__status' });
+    var meta = el('div', { class: 'storage__meta' });
+    var actions = el('div', { class: 'choice' });
+    var panel = el('div', { class: 'storage' }, [status, meta, actions]);
+
+    function paint(info) {
+      u.clear(status); u.clear(meta); u.clear(actions);
+
+      var blocked = info.mode === 'memory';
+      var tone = blocked ? 'bad' : info.persisted === true ? 'good' : 'ok';
+      var label = blocked
+        ? 'Browser blockiert das Speichern'
+        : info.persisted === true ? 'Dauerhaft gespeichert' : 'Im Browser gespeichert';
+
+      status.className = 'storage__status storage__status--' + tone;
+      status.appendChild(u.icon(blocked ? 'alert' : info.persisted === true ? 'shield' : 'check-circle'));
+      status.appendChild(el('span', { text: label }));
+
+      [
+        { icon: 'database', text: u.plural(info.sets, 'Set', 'Sets') + ' · ' + u.plural(info.cards, 'Karte', 'Karten') + ' · ' + u.formatBytes(info.bytes) },
+        { icon: 'clock', text: 'Gespeichert: ' + u.timeAgo(info.lastSave) },
+        { icon: 'copy', text: info.mirror === false ? 'Zweitkopie nicht möglich' : 'Zweitkopie aktiv' }
+      ].forEach(function (row) {
+        meta.appendChild(el('div', { class: 'storage__row' }, [u.icon(row.icon), el('span', { text: row.text })]));
+      });
+
+      if (blocked) {
+        meta.appendChild(el('p', {
+          class: 'hint',
+          text: 'Private Fenster und blockierte Seitendaten verhindern das Speichern. Sichere deine Sets als Datei oder erlaube dieser Seite, Daten zu speichern.'
+        }));
+      }
+
+      if (!blocked && info.persisted !== true) {
+        actions.appendChild(el('button', { class: 'choice__item', type: 'button', title: 'Browser um dauerhaften Speicher bitten', onclick: function () {
+          App.store.requestPersistence().then(function (granted) {
+            u.toast(granted ? 'Dauerhaft gesichert' : 'Browser hat abgelehnt', granted ? 'shield' : 'alert');
+            refresh();
+          });
+        } }, [u.icon('shield'), el('span', { text: 'Dauerhaft' })]));
+      }
+
+      actions.appendChild(el('button', { class: 'choice__item', type: 'button', onclick: function () {
+        downloadFile('quizfree-backup-' + new Date().toISOString().slice(0, 10) + '.json', App.store.exportAll());
+      } }, [u.icon('download'), el('span', { text: 'Sichern' })]));
+
+      actions.appendChild(el('button', { class: 'choice__item', type: 'button', onclick: pickFile },
+        [u.icon('upload'), el('span', { text: 'Laden' })]));
+    }
+
+    function refresh() { App.store.storageInfo().then(paint); }
+    refresh();
+    return panel;
+  }
+
   function renderSettings(host) {
     var settings = App.store.settings();
 
@@ -715,16 +772,14 @@ window.App = window.App || {};
         ])
       ]),
       el('div', { class: 'setting' }, [
-        el('span', { class: 'setting__label', text: 'Daten' }),
-        el('div', { class: 'choice' }, [
-          el('button', { class: 'choice__item', type: 'button', onclick: function () {
-            downloadFile('quizfree-backup.json', App.store.exportAll());
-          } }, [u.icon('download'), el('span', { text: 'Sichern' })]),
-          el('button', { class: 'choice__item', type: 'button', onclick: pickFile }, [u.icon('upload'), el('span', { text: 'Laden' })])
-        ])
+        el('span', { class: 'setting__label', text: 'Speicher' }),
+        storagePanel()
       ])
     ]));
-    host.appendChild(el('p', { class: 'hint hint--center', text: 'Alles bleibt lokal im Browser.' }));
+    host.appendChild(el('p', {
+      class: 'hint hint--center',
+      text: 'Alles bleibt in diesem Browser – nichts wird hochgeladen. Für ein anderes Gerät: sichern und dort laden, oder ein Set als Link teilen.'
+    }));
   }
 
   /* ==================== Registrierung ==================== */

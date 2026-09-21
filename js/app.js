@@ -15,6 +15,18 @@
     }
 
     App.ui.start();
+
+    // Zweitkopie prüfen: war der Hauptspeicher leer, kommen die Daten zurück
+    App.store.restore().then(function (restored) {
+      if (restored) {
+        App.util.toast(App.util.plural(restored, 'Set', 'Sets') + ' wiederhergestellt', 'database');
+        App.ui.render();
+      }
+    });
+
+    if (App.store.storageMode() === 'memory') {
+      App.util.toast('Speichern blockiert – bitte sichern', 'alert');
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

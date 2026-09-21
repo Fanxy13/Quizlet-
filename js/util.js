@@ -198,6 +198,30 @@ window.App = window.App || {};
     } catch (error) { /* Audio ist optional */ }
   }
 
+  /** "gerade eben", "vor 5 Min.", "vor 3 Std.", "vor 2 Tagen" */
+  function timeAgo(timestamp) {
+    if (!timestamp) return 'noch nie';
+    var seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+    if (seconds < 45) return 'gerade eben';
+    var minutes = Math.round(seconds / 60);
+    if (minutes < 60) return 'vor ' + minutes + ' Min.';
+    var hours = Math.round(minutes / 60);
+    if (hours < 24) return 'vor ' + hours + ' Std.';
+    var days = Math.round(hours / 24);
+    return days === 1 ? 'gestern' : 'vor ' + days + ' Tagen';
+  }
+
+  /** plural(1, 'Set', 'Sets') -> "1 Set" */
+  function plural(count, one, many) {
+    return count + ' ' + (count === 1 ? one : many);
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes) return '0 KB';
+    if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
   function formatTime(milliseconds) {
     var total = Math.max(0, Math.round(milliseconds / 100) / 10);
     var minutes = Math.floor(total / 60);
@@ -209,6 +233,7 @@ window.App = window.App || {};
     el: el, qs: qs, qsa: qsa, icon: icon, iconButton: iconButton, clear: clear,
     normalize: normalize, levenshtein: levenshtein, checkAnswer: checkAnswer, truncate: truncate,
     shuffle: shuffle, sample: sample, uid: uid,
-    speak: speak, toast: toast, blip: blip, formatTime: formatTime
+    speak: speak, toast: toast, blip: blip, formatTime: formatTime,
+    timeAgo: timeAgo, formatBytes: formatBytes, plural: plural
   };
 })(window.App);

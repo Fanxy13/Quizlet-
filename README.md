@@ -69,12 +69,31 @@ sowie reine Textlisten.
 | `S` | mischen |
 | `Strg`/`Cmd` + `S` | Set im Editor speichern |
 
-## Daten
+## Daten und Speicherung
 
-Alles liegt im `localStorage` des Browsers – Sets, Fortschritt, Einstellungen.
+Gespeichert wird in drei Stufen, damit nichts verloren geht:
+
+1. **localStorage** – Hauptspeicher, wird bei jeder Änderung sofort geschrieben.
+2. **IndexedDB** – Zweitkopie. Ist der Hauptspeicher beim Start leer (gelöscht,
+   gesperrt, abgelaufen), holt die App die Daten von dort zurück.
+3. **Arbeitsspeicher** – Notbetrieb, wenn der Browser das Speichern ganz
+   blockiert (privates Fenster, blockierte Seitendaten). Die App warnt dann
+   sichtbar und läuft weiter.
+
+Zusätzlich bittet die App beim ersten gespeicherten Set über
+`navigator.storage.persist()` um dauerhaften Speicher, damit der Browser die
+Daten bei Platzmangel nicht verwirft. Den Zustand zeigt
+**Einstellungen → Speicher**: Status, Umfang, letzter Speicherzeitpunkt,
+Zweitkopie sowie Sichern und Laden.
+
+Cookies werden bewusst nicht verwendet: sie fassen nur rund 4 KB und würden bei
+jeder Anfrage mitgeschickt – für Lernsets ungeeignet.
+
 Nichts wird an einen Server geschickt. Ausnahme: Beim Link-Import geht die
-aufgerufene Adresse an den jeweiligen Read-Proxy. Backup über
-Einstellungen → Daten → Sichern.
+aufgerufene Adresse an den jeweiligen Read-Proxy. Die Daten gehören zur
+jeweiligen Adresse – Sets von `fanxy13.github.io` tauchen also nicht in einer
+lokal geöffneten Kopie auf. Für den Wechsel auf ein anderes Gerät:
+**Sichern** und dort **Laden**, oder ein einzelnes Set als Link teilen.
 
 ## Aufbau
 
