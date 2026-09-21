@@ -42,19 +42,39 @@ Vier Wege, alle über die Startseite:
 Jedes Set lässt sich als Link teilen: Der Link enthält das ganze Set (Base64 im Hash),
 es wird also nichts hochgeladen.
 
-### Grenzen des Link-Imports
+### Wie der Link-Import arbeitet
 
-Ein Browser darf fremde Seiten nicht direkt laden (CORS). Die App versucht deshalb
-der Reihe nach: direkter Abruf, dann drei öffentliche Read-Proxys, dann `r.jina.ai`.
-Klappt keiner, kommt eine Fehlermeldung mit dem Angebot, den Text einzufügen.
+Ein Browser darf fremde Seiten nicht selbst laden (CORS), also laufen die Anfragen
+über Read-Proxys. Acht Wege werden **gleichzeitig** angestoßen, der erste brauchbare
+gewinnt (direkter Abruf, AllOrigins ×2, corsproxy.io, codetabs, whateverorigin,
+Internet Archive, r.jina.ai). Sperrseiten von Cloudflare werden erkannt und
+verworfen, statt sie als Inhalt zu behandeln.
 
-Quizlet schützt seine Seiten teilweise gegen automatisches Auslesen. Bei geschützten
-oder privaten Sets kann der Import deshalb fehlschlagen – in dem Fall: Set bei Quizlet
-öffnen, Karten markieren und kopieren, und über **Text** einfügen. Das funktioniert immer.
+Bei einer Quizlet-Adresse wird zuerst die Set-Nummer aus dem Link gezogen und
+Quizlets eigene JSON-Schnittstelle abgefragt (`webapi/3.4/studiable-item-documents`,
+500 Karten pro Seite, mit Seitenweise-Abruf). Das liefert auch bei langen Sets alle
+Karten – die Set-Seite selbst lädt nur einen Teil. Erst danach folgen die Set-Seite
+und der Archiv-Schnappschuss.
 
-Eingebaute Parser: Quizlet (aktuelles `__NEXT_DATA__`-Format und älteres
-`window.Quizlet`-Format), Tabellen und Definitionslisten beliebiger Seiten,
+Parser: Quizlet (aktuelles `__NEXT_DATA__`-Format, älteres `window.Quizlet`-Format
+und die JSON-Schnittstelle), Tabellen und Definitionslisten beliebiger Seiten,
 sowie reine Textlisten.
+
+### Wenn Quizlet trotzdem blockt
+
+Quizlet steht hinter Cloudflare und sperrt Abrufe aus Rechenzentren – bei manchen
+Sets scheitern deshalb alle Proxys. Dafür gibt es den **Quizlet-Helfer**
+(erscheint automatisch in der Fehlermeldung):
+
+1. Set bei Quizlet im eigenen Browser öffnen
+2. Konsole öffnen (F12), den angebotenen Code einfügen, Enter
+3. Die Karten öffnen sich als Import in QuizFree
+
+Der Code läuft in der bereits geladenen Seite, also in einer ganz normalen
+Browser-Sitzung. Es gibt keinen Proxy, den Cloudflare blocken könnte. Wahlweise
+lässt sich derselbe Code einmalig als Lesezeichen ablegen – dann genügt künftig
+ein Klick auf der Quizlet-Seite. Private Sets funktionieren so ebenfalls, solange
+man selbst angemeldet ist.
 
 ## Tastatur
 

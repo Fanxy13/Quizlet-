@@ -90,7 +90,16 @@ window.App = window.App || {};
         statusNode.className = 'status status--error';
         u.clear(statusNode);
         statusNode.appendChild(u.icon('alert'));
-        statusNode.appendChild(el('span', { text: error.message || 'Import fehlgeschlagen' }));
+        statusNode.appendChild(el('span', {
+          text: error.message || 'Import fehlgeschlagen',
+          title: error.details || ''
+        }));
+        if (error.quizlet || App.importer.isQuizlet(url)) {
+          statusNode.appendChild(el('button', {
+            class: 'btn btn--primary btn--sm', type: 'button',
+            onclick: function () { openQuizletHelper(); }
+          }, [u.icon('terminal'), el('span', { text: 'Quizlet-Helfer' })]));
+        }
         statusNode.appendChild(el('button', {
           class: 'btn btn--ghost btn--sm', type: 'button',
           onclick: function () { openTextImport(); }
@@ -132,7 +141,9 @@ window.App = window.App || {};
         hint,
         el('div', { class: 'chips chips--left' }, [
           el('button', { class: 'chip chip--ghost', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { dialog.close(); openPromptHelper(); } },
-            [u.icon('wand'), el('span', { text: 'Liste von einer KI erstellen lassen' })])
+            [u.icon('wand'), el('span', { text: 'Von einer KI erstellen lassen' })]),
+          el('button', { class: 'chip chip--ghost', type: 'button', title: 'Karten direkt von Quizlet holen', onclick: function () { dialog.close(); openQuizletHelper(); } },
+            [u.icon('terminal'), el('span', { text: 'Quizlet-Helfer' })])
         ])
       ],
       actions: [
@@ -147,6 +158,92 @@ window.App = window.App || {};
     });
     update();
     setTimeout(function () { area.focus(); }, 60);
+  }
+
+  /* ==================== Quizlet-Helfer ==================== */
+
+  /**
+   * Code, der im Browser des Nutzers auf der Quizlet-Seite läuft. Weil er
+   * Teil der bereits geöffneten Seite ist, greift keine Bot-Sperre: er liest
+   * die Karten aus der Seite und schickt sie an diese App.
+   */
+  function quizletSnippet() {
+    var app = location.href.split('#')[0];
+    return '(function(){' +
+      'var out=[],seen=new Set();' +
+      'function walk(n){' +
+        'if(!n||typeof n!=="object"||seen.has(n))return;seen.add(n);' +
+        'if(Array.isArray(n)){n.forEach(walk);return;}' +
+        'if(Array.isArray(n.cardSides)){var s={};' +
+          'n.cardSides.forEach(function(d){var t="";(d.media||[]).forEach(function(m){t=t||m.plainText||m.text||"";});' +
+          's[String(d.sideId).toLowerCase()]=t;});' +
+          'var a=s.word||s["1"],b=s.definition||s["2"];if(a&&b)out.push([a,b]);return;}' +
+        'if(typeof n.word==="string"&&typeof n.definition==="string"){out.push([n.word,n.definition]);return;}' +
+        'Object.keys(n).forEach(function(k){walk(n[k]);});' +
+      '}' +
+      'var tag=document.getElementById("__NEXT_DATA__");' +
+      'if(tag){try{walk(JSON.parse(tag.textContent));}catch(e){}}' +
+      'if(out.length<2){var q=document.querySelectorAll(".TermText,[class*=\'TermText\']");' +
+        'for(var i=0;i+1<q.length;i+=2)out.push([q[i].innerText.trim(),q[i+1].innerText.trim()]);}' +
+      'out=out.filter(function(p){return p[0]&&p[1];});' +
+      'if(!out.length){alert("Keine Karten gefunden. Seite ganz laden und erneut versuchen.");return;}' +
+      'var text=out.map(function(p){return p[0]+" ; "+p[1];}).join("\\n");' +
+      'var payload={t:(document.title||"Quizlet-Set").replace(/\\s*[|\\u2013-].*$/,"").trim(),d:"",c:out};' +
+      'var code=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");' +
+      'var app=' + JSON.stringify(app) + ';' +
+      'var w=null;' +
+      'if(/^https?:/.test(app)&&code.length<60000){w=window.open(app+"#/import?d="+code,"_blank");}' +
+      'if(!w){if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){' +
+        'alert(out.length+" Karten kopiert. In QuizFree unter Text einfuegen.");},function(){prompt("Karten kopieren:",text);});}' +
+        'else{prompt("Karten kopieren:",text);}}' +
+      '})();';
+  }
+
+  /** Anleitung mit Code zum Kopieren und Lesezeichen zum Ziehen. */
+  function openQuizletHelper() {
+    var code = quizletSnippet();
+    var output = el('textarea', { class: 'textarea textarea--prompt', rows: '5', readonly: true, spellcheck: 'false' });
+    output.value = code;
+
+    var steps = el('ol', { class: 'steps' });
+    [
+      { icon: 'link', text: 'Das Set bei Quizlet öffnen und bis ans Ende scrollen.' },
+      { icon: 'terminal', text: 'Konsole öffnen: F12, dann Reiter „Console“.' },
+      { icon: 'paste', text: 'Code einfügen und Enter drücken. Fragt der Browser danach, erst „allow pasting“ tippen.' },
+      { icon: 'check-circle', text: 'Die Karten landen automatisch hier.' }
+    ].forEach(function (step) {
+      steps.appendChild(el('li', { class: 'steps__item' }, [
+        el('span', { class: 'steps__icon' }, [u.icon(step.icon)]),
+        el('span', { text: step.text })
+      ]));
+    });
+
+    var bookmarklet = el('a', {
+      class: 'chip chip--drag',
+      title: 'In die Lesezeichenleiste ziehen',
+      draggable: 'true'
+    }, [u.icon('star'), el('span', { text: 'QuizFree-Import' })]);
+    bookmarklet.setAttribute('href', 'javascript:' + encodeURIComponent(code));
+    bookmarklet.addEventListener('click', function (event) {
+      event.preventDefault();
+      u.toast('In die Lesezeichenleiste ziehen', 'info');
+    });
+
+    App.ui.modal({
+      title: 'Quizlet-Helfer',
+      icon: 'terminal',
+      body: [
+        el('p', { class: 'hint', text: 'Quizlet sperrt fremde Abrufe. Dieser Code läuft in deinem eigenen Browser auf der Quizlet-Seite – dort greift die Sperre nicht.' }),
+        steps,
+        output,
+        el('div', { class: 'chips chips--left' }, [
+          el('button', { class: 'chip', type: 'button', onclick: function () { copyText(code); } },
+            [u.icon('copy'), el('span', { text: 'Code kopieren' })]),
+          bookmarklet
+        ]),
+        el('p', { class: 'hint', text: 'Oder einmalig als Lesezeichen ziehen: dann genügt künftig ein Klick auf der Quizlet-Seite.' })
+      ]
+    });
   }
 
   /* ==================== Prompt für KI-Chats ==================== */
@@ -789,6 +886,8 @@ window.App = window.App || {};
     setCard: setCard,
     openTextImport: openTextImport,
     openPromptHelper: openPromptHelper,
+    openQuizletHelper: openQuizletHelper,
+    quizletSnippet: quizletSnippet,
     buildPrompt: buildPrompt,
     previewImport: previewImport,
     downloadFile: downloadFile

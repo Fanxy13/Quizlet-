@@ -1,54 +1,216 @@
 /* ==========================================================================
    importer.js - aus einem Link oder Text ein Lernset machen
-   Reihenfolge: eigener Teilen-Link -> Quizlet-Parser -> generischer Seiten-Text
-   Browser dürfen fremde Seiten nicht direkt laden (CORS), darum laufen die
-   Anfragen über öffentliche Read-Proxys. Klappt einer nicht, kommt der nächste.
+
+   Browser dürfen fremde Seiten nicht selbst laden (CORS), darum laufen die
+   Anfragen über öffentliche Read-Proxys. Quizlet sperrt solche Proxys
+   teilweise aus (Cloudflare), deshalb werden mehrere Wege gleichzeitig
+   versucht und der erste brauchbare gewinnt:
+
+   1. quizlet.com/webapi/... - die Karten als JSON, mit Seitenweise-Abruf
+   2. die normale Set-Seite mit eingebettetem JSON
+   3. ein Schnappschuss aus dem Internet Archive
+   4. generische Parser (Tabellen, Textlisten)
+
+   Wenn alles gesperrt ist, hilft der Quizlet-Helfer in der Oberfläche: ein
+   Schnipsel, das im Browser des Nutzers direkt auf der Quizlet-Seite läuft
+   und dabei gar keinen Proxy braucht.
    ========================================================================== */
 window.App = window.App || {};
 
 (function (App) {
   'use strict';
 
-  // Erst direkt versuchen (klappt bei CORS-freundlichen Quellen wie raw.githubusercontent.com),
-  // danach über öffentliche Read-Proxys.
+  /**
+   * Zugriffswege. "direkt" klappt bei CORS-freundlichen Quellen
+   * (raw.githubusercontent.com, eigene Dateien), der Rest sind Read-Proxys.
+   * unwrap() holt den Seiteninhalt aus einer JSON-Verpackung.
+   */
   var PROXIES = [
-    function (url) { return url; },
-    function (url) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url); },
-    function (url) { return 'https://corsproxy.io/?url=' + encodeURIComponent(url); },
-    function (url) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url); },
-    function (url) { return 'https://r.jina.ai/' + url; }
+    {
+      name: 'direkt',
+      build: function (url) { return url; }
+    },
+    {
+      name: 'allorigins',
+      build: function (url) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url); }
+    },
+    {
+      name: 'allorigins-json',
+      build: function (url) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(url); },
+      unwrap: function (body) {
+        try { return JSON.parse(body).contents || ''; } catch (error) { return body; }
+      }
+    },
+    {
+      name: 'corsproxy',
+      build: function (url) { return 'https://corsproxy.io/?url=' + encodeURIComponent(url); }
+    },
+    {
+      name: 'codetabs',
+      build: function (url) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url); }
+    },
+    {
+      name: 'whateverorigin',
+      build: function (url) { return 'https://whateverorigin.org/get?url=' + encodeURIComponent(url); },
+      unwrap: function (body) {
+        try { return JSON.parse(body).contents || ''; } catch (error) { return body; }
+      }
+    },
+    {
+      name: 'archive',
+      build: function (url) { return 'https://web.archive.org/web/2id_/' + url; }
+    },
+    {
+      name: 'jina',
+      build: function (url) { return 'https://r.jina.ai/' + url; }
+    }
   ];
 
-  var TIMEOUT = 15000;
+  var TIMEOUT = 14000;
 
-  function fetchText(url) {
+  function proxyByName(name) {
+    var found = PROXIES[0];
+    PROXIES.forEach(function (proxy) { if (proxy.name === name) found = proxy; });
+    return found;
+  }
+
+  function fetchThrough(proxy, url) {
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, TIMEOUT);
-    return fetch(url, { signal: controller.signal, headers: { 'Accept': 'text/html,text/plain,*/*' } })
+    return fetch(proxy.build(url), {
+      signal: controller.signal,
+      headers: { 'Accept': 'text/html,application/json,text/plain,*/*' },
+      redirect: 'follow'
+    })
       .then(function (response) {
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return response.text();
       })
+      .then(function (body) { return proxy.unwrap ? proxy.unwrap(body) : body; })
       .finally(function () { clearTimeout(timer); });
   }
 
-  /** Seite über die Proxys laden, bis einer brauchbaren Inhalt liefert. */
-  async function loadPage(url, onStep) {
-    var lastError = null;
-    for (var i = 0; i < PROXIES.length; i++) {
-      try {
-        if (onStep) onStep(i + 1, PROXIES.length);
-        var body = await fetchText(PROXIES[i](url));
-        if (body && body.length > 120) return body;
-        lastError = new Error('Leere Antwort');
-      } catch (error) { lastError = error; }
-    }
-    throw lastError || new Error('Seite nicht erreichbar');
+  /**
+   * Alle Wege gleichzeitig anstoßen, der erste brauchbare gewinnt.
+   * accept(body) gibt das Ergebnis zurück oder etwas Falsches, wenn der
+   * Inhalt nichts taugt (z. B. eine Cloudflare-Sperrseite).
+   * -> { body, value, via } oder Fehler mit Sammelmeldung
+   */
+  function loadFirst(url, accept, onStep) {
+    return new Promise(function (resolve, reject) {
+      var pending = PROXIES.length;
+      var problems = [];
+      var settled = false;
+      var tried = 0;
+
+      PROXIES.forEach(function (proxy) {
+        fetchThrough(proxy, url).then(function (body) {
+          tried++;
+          if (settled) return;
+          var value = null;
+          try { value = accept(body); } catch (error) { value = null; }
+          if (value) {
+            settled = true;
+            resolve({ body: body, value: value, via: proxy.name });
+            return;
+          }
+          problems.push(proxy.name + ': ' + (blockedPage(body) ? 'gesperrt' : 'nichts gefunden'));
+          step();
+        }, function (error) {
+          tried++;
+          problems.push(proxy.name + ': ' + (error.name === 'AbortError' ? 'Zeitüberschreitung' : error.message || 'Fehler'));
+          step();
+        });
+      });
+
+      function step() {
+        pending--;
+        if (settled) return;
+        if (onStep) onStep(tried, PROXIES.length);
+        if (pending <= 0) {
+          var blocked = problems.filter(function (text) {
+            return /gesperrt|HTTP 4|HTTP 5/.test(text);
+          }).length;
+          var error = new Error(blocked >= problems.length - 1
+            ? 'Die Seite lässt den Abruf nicht zu'
+            : 'Keine Karten gefunden');
+          error.details = problems.join(' · ');
+          error.blocked = blocked > 0;
+          reject(error);
+        }
+      }
+    });
+  }
+
+  /** Typische Sperr- oder Fehlerseiten erkennen. */
+  function blockedPage(body) {
+    if (!body || body.length < 80) return true;
+    return /just a moment|cf-browser-verification|attention required|access denied|enable javascript and cookies|captcha/i
+      .test(body.slice(0, 4000));
   }
 
   /* ---------- Quizlet ---------- */
 
   function isQuizlet(url) { return /(^|\.)quizlet\.com/i.test(hostOf(url)); }
+
+  /** Set-Nummer aus einer Quizlet-Adresse ziehen: /de/123456789/titel/ -> 123456789 */
+  function quizletSetId(url) {
+    var match = String(url).match(/quizlet\.com\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(\d{6,})/i);
+    return match ? match[1] : '';
+  }
+
+  function apiUrl(setId, page, token) {
+    return 'https://quizlet.com/webapi/3.4/studiable-item-documents'
+      + '?filters%5BstudiableContainerId%5D=' + setId
+      + '&filters%5BstudiableContainerType%5D=1'
+      + '&perPage=500&page=' + page
+      + (token ? '&pagingToken=' + encodeURIComponent(token) : '');
+  }
+
+  function cardsFromBody(body) {
+    var cards = [];
+    try { harvestJson(JSON.parse(body), cards); }
+    catch (error) { cards = parseQuizlet(body); }
+    return dedupe(cards);
+  }
+
+  function pagingToken(body) {
+    var match = String(body).match(/"paging"\s*:\s*\{[^{}]*"token"\s*:\s*"([^"]+)"/);
+    return match ? match[1] : '';
+  }
+
+  /**
+   * Karten über Quizlets eigene JSON-Schnittstelle holen - kleiner als die
+   * Seite und vollständig, weil die Set-Seite lange Sets nur häppchenweise
+   * ausliefert.
+   */
+  async function quizletApi(setId, onStep) {
+    if (onStep) onStep('Quizlet-Daten werden abgefragt …');
+    var first = await loadFirst(apiUrl(setId, 1, ''), function (body) {
+      var found = cardsFromBody(body);
+      return found.length ? found : null;
+    }, function (tried, total) {
+      if (onStep) onStep('Quelle ' + tried + '/' + total + ' …');
+    });
+
+    var cards = first.value;
+    var proxy = proxyByName(first.via);
+    var token = pagingToken(first.body);
+    var page = 1;
+
+    while (token && page < 12) {
+      page++;
+      if (onStep) onStep(cards.length + ' Karten …');
+      try {
+        var body = await fetchThrough(proxy, apiUrl(setId, page, token));
+        var more = cardsFromBody(body);
+        if (!more.length) break;
+        cards = dedupe(cards.concat(more));
+        token = pagingToken(body);
+      } catch (error) { break; }
+    }
+    return cards;
+  }
 
   function hostOf(url) {
     try { return new URL(url).hostname; } catch (error) { return ''; }
@@ -278,33 +440,69 @@ window.App = window.App || {};
       if (set && set.cards.length) return { title: set.title, cards: set.cards, source: url, note: 'Geteiltes Set' };
     }
 
-    if (onStep) onStep('Seite wird geladen …');
-    var html = await loadPage(url, function (index, total) {
-      if (onStep) onStep('Versuch ' + index + '/' + total + ' …');
-    });
+    var setId = quizletSetId(url);
+    var apiError = null;
 
-    if (onStep) onStep('Karten werden gelesen …');
-
-    // Eingebettete Kartendaten zuerst - das deckt Quizlet und ähnliche
-    // Lernseiten ab, die ihre Karten als JSON in die Seite schreiben.
-    var cards = parseQuizlet(html);
-    var note = cards.length && isQuizlet(url) ? 'Von Quizlet importiert' : '';
-    if (cards.length < 2) cards = parseTables(html);
-    if (cards.length < 2) {
-      var plain = /<[a-z][\s\S]*>/i.test(html) ? htmlToText(html) : html;
-      cards = parseText(plain);
+    // Weg 1: Quizlets JSON-Schnittstelle
+    if (setId) {
+      try {
+        var apiCards = await quizletApi(setId, onStep);
+        if (apiCards.length >= 2) {
+          return {
+            title: titleFromUrl(url) || 'Quizlet-Set',
+            cards: apiCards,
+            source: url,
+            note: 'Von Quizlet importiert'
+          };
+        }
+      } catch (error) { apiError = error; }
     }
 
-    if (cards.length < 2) {
-      throw new Error('Auf der Seite wurden keine Karten gefunden');
+    // Weg 2: die Seite selbst (eingebettetes JSON, Tabellen, Textliste)
+    if (onStep) onStep('Seite wird geladen …');
+    var page;
+    try {
+      page = await loadFirst(url, function (body) {
+        if (blockedPage(body)) return null;
+        var found = parseQuizlet(body);
+        if (found.length < 2) found = parseTables(body);
+        if (found.length < 2) {
+          found = parseText(/<[a-z][\s\S]*>/i.test(body) ? htmlToText(body) : body);
+        }
+        return found.length >= 2 ? { cards: found, body: body } : null;
+      }, function (tried, total) {
+        if (onStep) onStep('Quelle ' + tried + '/' + total + ' …');
+      });
+    } catch (error) {
+      throw describeFailure(error, apiError, url);
     }
 
     return {
-      title: titleFrom(html, titleFromUrl(url) || hostOf(url)),
-      cards: cards,
+      title: titleFrom(page.body, titleFromUrl(url) || hostOf(url)),
+      cards: page.value.cards,
       source: url,
-      note: note
+      note: isQuizlet(url) ? 'Von Quizlet importiert' : ''
     };
+  }
+
+  /** Aus den gesammelten Fehlern eine Meldung machen, die weiterhilft. */
+  function describeFailure(pageError, apiError, url) {
+    var blocked = (pageError && pageError.blocked) || (apiError && apiError.blocked);
+    var error;
+    if (isQuizlet(url)) {
+      error = new Error(blocked
+        ? 'Quizlet blockiert den Abruf'
+        : 'Karten nicht lesbar – ist das Set privat?');
+      error.quizlet = true;
+    } else {
+      error = new Error(blocked
+        ? 'Die Seite lässt den Abruf nicht zu'
+        : 'Keine Karten auf der Seite gefunden');
+    }
+    error.blocked = !!blocked;
+    error.details = [apiError && apiError.details, pageError && pageError.details]
+      .filter(Boolean).join(' || ');
+    return error;
   }
 
   function htmlToText(html) {
@@ -321,6 +519,7 @@ window.App = window.App || {};
 
   App.importer = {
     fromLink: fromLink,
+    quizletSetId: quizletSetId,
     titleFromUrl: titleFromUrl,
     fromText: parseText,
     isQuizlet: isQuizlet,

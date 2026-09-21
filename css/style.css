@@ -1299,3 +1299,40 @@ button, input, textarea { font: inherit; color: inherit; }
 .storage__row { display: flex; align-items: center; gap: 8px; }
 .storage__row .icon { width: 17px; height: 17px; }
 .storage__meta .hint { width: 100%; margin: 0; }
+
+/* --- Quizlet-Helfer --- */
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.steps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+.steps__icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .steps__icon { color: #aab2ff; }
+.steps__icon .icon { width: 17px; height: 17px; }
+
+.chip--drag {
+  border-style: dashed;
+  cursor: grab;
+}
+.chip--drag:active { cursor: grabbing; }
