@@ -1,0 +1,627 @@
+/* ==========================================================================
+   pages.js - Start, Import, Bibliothek, Set-Übersicht, Editor, Einstellungen
+   ========================================================================== */
+window.App = window.App || {};
+
+(function (App) {
+  'use strict';
+
+  var u = App.util;
+  var el = u.el;
+
+  var MODES = [
+    { key: 'cards', icon: 'cards', title: 'Karteikarten', color: 'a' },
+    { key: 'learn', icon: 'learn', title: 'Lernen', color: 'b' },
+    { key: 'write', icon: 'pencil', title: 'Schreiben', color: 'c' },
+    { key: 'test', icon: 'checklist', title: 'Test', color: 'd' },
+    { key: 'match', icon: 'puzzle', title: 'Zuordnen', color: 'e' }
+  ];
+
+  /* ==================== gemeinsame Bausteine ==================== */
+
+  function setCard(set) {
+    var percent = App.store.masteryPercent(set);
+    return el('a', { class: 'setcard', href: '#/set/' + set.id }, [
+      el('div', { class: 'setcard__ring' }, [App.ui.ring(percent, 46)]),
+      el('div', { class: 'setcard__body' }, [
+        el('h3', { class: 'setcard__title', text: set.title }),
+        el('div', { class: 'setcard__meta' }, [
+          u.icon('cards'), el('span', { text: String(set.cards.length) }),
+          set.source ? u.icon('link') : null
+        ])
+      ]),
+      el('div', { class: 'setcard__go' }, [u.icon('chevron-right')])
+    ]);
+  }
+
+  /** Vorschau nach dem Import - Titel anpassen, dann speichern. */
+  function previewImport(result) {
+    var titleInput = el('input', { class: 'input', type: 'text', value: result.title || 'Importiertes Set', maxlength: '120' });
+    var list = el('div', { class: 'preview' });
+    result.cards.slice(0, 60).forEach(function (card) {
+      list.appendChild(el('div', { class: 'preview__row' }, [
+        el('span', { class: 'preview__term', text: u.truncate(card.term, 60) }),
+        el('span', { class: 'preview__def', text: u.truncate(card.definition, 80) })
+      ]));
+    });
+
+    var dialog = App.ui.modal({
+      title: result.cards.length + ' Karten',
+      icon: 'check-circle',
+      body: [
+        el('label', { class: 'field' }, [u.icon('tag'), titleInput]),
+        list
+      ],
+      actions: [
+        el('button', { class: 'btn', type: 'button', onclick: function () { dialog.close(); } }, [u.icon('x'), el('span', { text: 'Verwerfen' })]),
+        el('button', { class: 'btn btn--primary', type: 'button', onclick: function () {
+          var set = App.store.saveSet(App.store.makeSet({
+            title: titleInput.value.trim() || result.title,
+            source: result.source || '',
+            cards: result.cards
+          }));
+          dialog.close();
+          u.toast('Set gespeichert', 'check');
+          App.ui.go('#/set/' + set.id);
+        } }, [u.icon('check'), el('span', { text: 'Los geht’s' })])
+      ]
+    });
+  }
+
+  /** Link importieren, mit Status-Anzeige direkt am Eingabefeld. */
+  function runLinkImport(url, statusNode, button) {
+    if (!url.trim()) { u.toast('Link fehlt', 'alert'); return; }
+    if (button) button.disabled = true;
+    statusNode.className = 'status status--busy';
+    u.clear(statusNode);
+    statusNode.appendChild(el('span', { class: 'spinner' }));
+    var label = el('span', { text: 'Wird geladen …' });
+    statusNode.appendChild(label);
+
+    App.importer.fromLink(url, function (step) { label.textContent = step; })
+      .then(function (result) {
+        statusNode.className = 'status status--ok';
+        u.clear(statusNode);
+        statusNode.appendChild(u.icon('check-circle'));
+        statusNode.appendChild(el('span', { text: result.cards.length + ' Karten' }));
+        previewImport(result);
+      })
+      .catch(function (error) {
+        statusNode.className = 'status status--error';
+        u.clear(statusNode);
+        statusNode.appendChild(u.icon('alert'));
+        statusNode.appendChild(el('span', { text: error.message || 'Import fehlgeschlagen' }));
+        statusNode.appendChild(el('button', {
+          class: 'btn btn--ghost btn--sm', type: 'button',
+          onclick: function () { openTextImport(); }
+        }, [u.icon('paste'), el('span', { text: 'Text einfügen' })]));
+      })
+      .finally(function () { if (button) button.disabled = false; });
+  }
+
+  /** Karten aus eingefügtem Text (Tab, Komma, Bindestrich oder Zeilenwechsel). */
+  function openTextImport(prefill) {
+    var area = el('textarea', {
+      class: 'textarea', rows: '10', spellcheck: 'false',
+      placeholder: 'Begriff\tDefinition\nBegriff - Definition\nBegriff\nDefinition'
+    });
+    if (prefill) area.value = prefill;
+    var titleInput = el('input', { class: 'input', type: 'text', placeholder: 'Titel', maxlength: '120' });
+    var hint = el('div', { class: 'status' });
+
+    function update() {
+      var cards = App.importer.fromText(area.value);
+      u.clear(hint);
+      hint.className = 'status ' + (cards.length ? 'status--ok' : '');
+      hint.appendChild(u.icon(cards.length ? 'check-circle' : 'info'));
+      hint.appendChild(el('span', { text: cards.length ? cards.length + ' Karten' : 'Noch keine Karten erkannt' }));
+      return cards;
+    }
+    area.addEventListener('input', update);
+
+    var dialog = App.ui.modal({
+      title: 'Text einfügen',
+      icon: 'paste',
+      body: [el('label', { class: 'field' }, [u.icon('tag'), titleInput]), area, hint],
+      actions: [
+        el('button', { class: 'btn btn--primary', type: 'button', onclick: function () {
+          var cards = App.importer.fromText(area.value);
+          if (!cards.length) { u.toast('Keine Karten erkannt', 'alert'); return; }
+          var set = App.store.saveSet(App.store.makeSet({ title: titleInput.value || 'Eingefügtes Set', cards: cards }));
+          dialog.close();
+          App.ui.go('#/set/' + set.id);
+        } }, [u.icon('check'), el('span', { text: 'Speichern' })])
+      ]
+    });
+    update();
+    setTimeout(function () { area.focus(); }, 60);
+  }
+
+  /* ==================== Start ==================== */
+
+  function demoSet() {
+    return App.store.makeSet({
+      title: 'Demo · Hauptstädte',
+      description: 'Beispielset zum Ausprobieren',
+      cards: [
+        { term: 'Frankreich', definition: 'Paris' },
+        { term: 'Japan', definition: 'Tokio' },
+        { term: 'Brasilien', definition: 'Brasília' },
+        { term: 'Kanada', definition: 'Ottawa' },
+        { term: 'Australien', definition: 'Canberra' },
+        { term: 'Norwegen', definition: 'Oslo' },
+        { term: 'Marokko', definition: 'Rabat' },
+        { term: 'Indien', definition: 'Neu-Delhi' },
+        { term: 'Schweiz', definition: 'Bern' },
+        { term: 'Türkei', definition: 'Ankara' }
+      ]
+    });
+  }
+
+  function renderHome(host) {
+    var sets = App.store.allSets();
+
+    var input = el('input', {
+      class: 'hero__input', type: 'url', inputmode: 'url', spellcheck: 'false',
+      placeholder: 'https://quizlet.com/…',
+      'aria-label': 'Link zu einem Lernset'
+    });
+    var status = el('div', { class: 'status' });
+    var submit = el('button', { class: 'hero__go', type: 'button', 'aria-label': 'Importieren', title: 'Importieren' }, [u.icon('arrow-right')]);
+
+    submit.addEventListener('click', function () { runLinkImport(input.value, status, submit); });
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') runLinkImport(input.value, status, submit);
+    });
+
+    var hero = el('section', { class: 'hero' }, [
+      el('div', { class: 'hero__mark' }, [u.icon('logo')]),
+      el('div', { class: 'hero__field' }, [u.icon('link'), input, submit]),
+      status,
+      el('div', { class: 'chips' }, [
+        el('button', { class: 'chip', type: 'button', title: 'Text einfügen', onclick: function () { openTextImport(); } },
+          [u.icon('paste'), el('span', { text: 'Text' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Datei laden (CSV/TXT)', onclick: pickFile },
+          [u.icon('upload'), el('span', { text: 'Datei' })]),
+        el('a', { class: 'chip', href: '#/edit/new', title: 'Selbst schreiben' },
+          [u.icon('plus'), el('span', { text: 'Neu' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Demo-Set laden', onclick: function () {
+          var set = App.store.saveSet(demoSet());
+          App.ui.go('#/set/' + set.id);
+        } }, [u.icon('sparkles'), el('span', { text: 'Demo' })])
+      ])
+    ]);
+
+    host.appendChild(hero);
+
+    // Was die App kann - als Symbolreihe statt als Fließtext
+    host.appendChild(el('div', { class: 'teaser' }, MODES.map(function (mode) {
+      return el('div', { class: 'teaser__item mode--' + mode.color, title: mode.title }, [
+        el('div', { class: 'teaser__icon' }, [u.icon(mode.icon)]),
+        el('span', { class: 'teaser__label', text: mode.title })
+      ]);
+    })));
+
+    var recent = sets.slice(0, 8);
+    if (recent.length) {
+      host.appendChild(el('section', { class: 'section' }, [
+        el('div', { class: 'section__head' }, [
+          u.icon('clock'),
+          el('h2', { class: 'section__title', text: 'Zuletzt' }),
+          el('a', { class: 'iconbtn', href: '#/library', title: 'Alle Sets', 'aria-label': 'Alle Sets' }, [u.icon('library')])
+        ]),
+        el('div', { class: 'grid' }, recent.map(setCard))
+      ]));
+    }
+
+    setTimeout(function () { input.focus(); }, 80);
+  }
+
+  function pickFile() {
+    var picker = el('input', { type: 'file', accept: '.csv,.tsv,.txt,.json', style: 'display:none' });
+    document.body.appendChild(picker);
+    picker.addEventListener('change', function () {
+      var file = picker.files && picker.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var text = String(reader.result || '');
+        if (/\.json$/i.test(file.name)) {
+          try {
+            var count = App.store.importAll(text);
+            u.toast(count + ' Sets importiert', 'check');
+            App.ui.go('#/library');
+          } catch (error) { u.toast('Datei nicht lesbar', 'alert'); }
+        } else {
+          openTextImport(text);
+        }
+        document.body.removeChild(picker);
+      };
+      reader.readAsText(file);
+    });
+    picker.click();
+  }
+
+  /* ==================== Neu / Link ==================== */
+
+  function renderNew(host) {
+    var input = el('input', { class: 'hero__input', type: 'url', spellcheck: 'false', placeholder: 'https://quizlet.com/…' });
+    var status = el('div', { class: 'status' });
+    var submit = el('button', { class: 'hero__go', type: 'button', 'aria-label': 'Importieren' }, [u.icon('arrow-right')]);
+    submit.addEventListener('click', function () { runLinkImport(input.value, status, submit); });
+    input.addEventListener('keydown', function (event) { if (event.key === 'Enter') runLinkImport(input.value, status, submit); });
+
+    host.appendChild(App.ui.topbar({ title: 'Neues Set', back: '#/' }));
+    host.appendChild(el('section', { class: 'hero hero--compact' }, [
+      el('div', { class: 'hero__field' }, [u.icon('link'), input, submit]),
+      status,
+      el('div', { class: 'chips' }, [
+        el('button', { class: 'chip', type: 'button', onclick: function () { openTextImport(); } }, [u.icon('paste'), el('span', { text: 'Text' })]),
+        el('button', { class: 'chip', type: 'button', onclick: pickFile }, [u.icon('upload'), el('span', { text: 'Datei' })]),
+        el('a', { class: 'chip', href: '#/edit/new' }, [u.icon('plus'), el('span', { text: 'Leer' })])
+      ])
+    ]));
+    setTimeout(function () { input.focus(); }, 80);
+  }
+
+  /* ==================== Bibliothek ==================== */
+
+  function renderLibrary(host) {
+    var sets = App.store.allSets();
+    var search = el('input', { class: 'input input--search', type: 'search', placeholder: 'Suchen', 'aria-label': 'Sets durchsuchen' });
+    var grid = el('div', { class: 'grid' });
+
+    function paint() {
+      var query = u.normalize(search.value);
+      u.clear(grid);
+      var visible = sets.filter(function (set) {
+        return !query || u.normalize(set.title).indexOf(query) !== -1;
+      });
+      if (!visible.length) { grid.appendChild(App.ui.empty('search', 'Nichts gefunden')); return; }
+      visible.forEach(function (set) { grid.appendChild(setCard(set)); });
+    }
+    search.addEventListener('input', paint);
+
+    host.appendChild(App.ui.topbar({
+      title: 'Meine Sets',
+      back: '#/',
+      actions: [el('a', { class: 'iconbtn iconbtn--accent', href: '#/new', title: 'Neues Set', 'aria-label': 'Neues Set' }, [u.icon('plus')])]
+    }));
+    if (!sets.length) {
+      host.appendChild(App.ui.empty('library', 'Noch keine Sets',
+        el('a', { class: 'btn btn--primary', href: '#/new' }, [u.icon('link'), el('span', { text: 'Link einfügen' })])));
+      return;
+    }
+    host.appendChild(el('div', { class: 'searchbar' }, [u.icon('search'), search]));
+    host.appendChild(grid);
+    paint();
+  }
+
+  /* ==================== Set-Übersicht ==================== */
+
+  function renderSet(host, segments) {
+    var set = App.store.getSet(segments[0]);
+    if (!set) { host.appendChild(App.ui.empty('alert', 'Set nicht gefunden')); return; }
+    var percent = App.store.masteryPercent(set);
+    var progress = App.store.progressFor(set.id);
+
+    host.appendChild(App.ui.topbar({
+      title: set.title,
+      subtitle: set.cards.length + ' Karten',
+      back: '#/library',
+      actions: [
+        el('a', { class: 'iconbtn', href: '#/edit/' + set.id, title: 'Bearbeiten', 'aria-label': 'Bearbeiten' }, [u.icon('pencil')]),
+        el('button', { class: 'iconbtn', type: 'button', title: 'Teilen', 'aria-label': 'Teilen', onclick: function () { shareSet(set); } }, [u.icon('share')]),
+        el('button', { class: 'iconbtn', type: 'button', title: 'Mehr', 'aria-label': 'Mehr', onclick: function () { moreMenu(set); } }, [u.icon('dots')])
+      ]
+    }));
+
+    host.appendChild(el('div', { class: 'summary' }, [
+      App.ui.ring(percent, 72),
+      el('div', { class: 'summary__stats' }, [
+        stat('check-circle', set.cards.filter(function (card) { return (progress.box[card.id] || 0) >= 2; }).length, 'Sitzt'),
+        stat('refresh', set.cards.filter(function (card) { var box = progress.box[card.id] || 0; return box > 0 && box < 2; }).length, 'Am Lernen'),
+        stat('star', set.cards.filter(function (card) { return card.starred; }).length, 'Markiert')
+      ])
+    ]));
+
+    var modeGrid = el('div', { class: 'modes' });
+    MODES.forEach(function (mode) {
+      modeGrid.appendChild(el('a', {
+        class: 'mode mode--' + mode.color,
+        href: '#/study/' + mode.key + '/' + set.id,
+        title: mode.title
+      }, [
+        el('div', { class: 'mode__icon' }, [u.icon(mode.icon)]),
+        el('span', { class: 'mode__label', text: mode.title })
+      ]));
+    });
+    host.appendChild(modeGrid);
+
+    var list = el('div', { class: 'cards' });
+    set.cards.forEach(function (card) {
+      var star = el('button', {
+        class: 'iconbtn iconbtn--star' + (card.starred ? ' is-on' : ''),
+        type: 'button', title: 'Markieren', 'aria-label': 'Markieren',
+        onclick: function () {
+          card.starred = !card.starred;
+          App.store.saveSet(set);
+          star.classList.toggle('is-on', card.starred);
+        }
+      }, [u.icon('star')]);
+
+      list.appendChild(el('div', { class: 'cardrow' }, [
+        el('div', { class: 'cardrow__text' }, [
+          el('span', { class: 'cardrow__term', text: card.term }),
+          el('span', { class: 'cardrow__def', text: card.definition })
+        ]),
+        el('button', { class: 'iconbtn', type: 'button', title: 'Vorlesen', 'aria-label': 'Vorlesen', onclick: function () { u.speak(card.term + '. ' + card.definition, set.lang); } }, [u.icon('volume')]),
+        star
+      ]));
+    });
+    host.appendChild(el('section', { class: 'section' }, [
+      el('div', { class: 'section__head' }, [u.icon('list'), el('h2', { class: 'section__title', text: 'Karten' })]),
+      list
+    ]));
+  }
+
+  function stat(iconName, value, label) {
+    return el('div', { class: 'stat', title: label }, [
+      u.icon(iconName),
+      el('strong', { class: 'stat__value', text: String(value) }),
+      el('span', { class: 'stat__label', text: label })
+    ]);
+  }
+
+  function shareSet(set) {
+    var link = App.store.shareLink(set);
+    var field = el('input', { class: 'input', type: 'text', value: link, readonly: true });
+    App.ui.modal({
+      title: 'Teilen',
+      icon: 'share',
+      body: [
+        el('label', { class: 'field' }, [u.icon('link'), field]),
+        el('p', { class: 'hint', text: 'Der Link enthält das komplette Set – kein Server nötig.' })
+      ],
+      actions: [
+        el('button', { class: 'btn btn--primary', type: 'button', onclick: function () {
+          field.select();
+          if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { u.toast('Kopiert', 'check'); });
+          else { document.execCommand('copy'); u.toast('Kopiert', 'check'); }
+        } }, [u.icon('copy'), el('span', { text: 'Kopieren' })])
+      ]
+    });
+    setTimeout(function () { field.select(); }, 60);
+  }
+
+  function moreMenu(set) {
+    var dialog = App.ui.modal({
+      title: set.title,
+      icon: 'dots',
+      body: [el('div', { class: 'menu' }, [
+        menuItem('shuffle', 'Reihenfolge mischen', function () {
+          set.cards = u.shuffle(set.cards);
+          App.store.saveSet(set);
+          dialog.close(); App.ui.render(); u.toast('Gemischt', 'shuffle');
+        }),
+        menuItem('swap', 'Seiten tauschen', function () {
+          set.cards = set.cards.map(function (card) {
+            return { id: card.id, term: card.definition, definition: card.term, starred: card.starred };
+          });
+          App.store.saveSet(set);
+          dialog.close(); App.ui.render(); u.toast('Getauscht', 'swap');
+        }),
+        menuItem('refresh', 'Fortschritt zurücksetzen', function () {
+          App.store.resetProgress(set.id);
+          dialog.close(); App.ui.render(); u.toast('Zurückgesetzt', 'refresh');
+        }),
+        menuItem('download', 'Als CSV sichern', function () {
+          var csv = set.cards.map(function (card) {
+            return '"' + card.term.replace(/"/g, '""') + '","' + card.definition.replace(/"/g, '""') + '"';
+          }).join('\n');
+          downloadFile(set.title.replace(/[^\w\s-]/g, '') + '.csv', csv);
+          dialog.close();
+        }),
+        menuItem('trash', 'Set löschen', function () {
+          dialog.close();
+          App.ui.confirm('Set löschen?', 'trash').then(function (yes) {
+            if (!yes) return;
+            App.store.deleteSet(set.id);
+            App.ui.go('#/library');
+          });
+        }, true)
+      ])]
+    });
+  }
+
+  function menuItem(iconName, label, onClick, danger) {
+    return el('button', { class: 'menu__item' + (danger ? ' menu__item--danger' : ''), type: 'button', onclick: onClick },
+      [u.icon(iconName), el('span', { text: label })]);
+  }
+
+  function downloadFile(name, content) {
+    var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    var link = el('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function () { URL.revokeObjectURL(link.href); document.body.removeChild(link); }, 500);
+  }
+
+  /* ==================== Editor ==================== */
+
+  function renderEditor(host, segments) {
+    var isNew = segments[0] === 'new';
+    var set = isNew ? App.store.makeSet({ title: '', cards: [{ term: '', definition: '' }, { term: '', definition: '' }] }) : App.store.getSet(segments[0]);
+    if (!set) { host.appendChild(App.ui.empty('alert', 'Set nicht gefunden')); return; }
+
+    var titleInput = el('input', { class: 'input input--title', type: 'text', value: set.title, placeholder: 'Titel', maxlength: '120' });
+    var rows = el('div', { class: 'editor' });
+
+    function addRow(card, focus) {
+      var term = el('textarea', { class: 'editor__input', rows: '1', placeholder: 'Begriff' });
+      var definition = el('textarea', { class: 'editor__input', rows: '1', placeholder: 'Definition' });
+      term.value = card.term; definition.value = card.definition;
+      [term, definition].forEach(function (field) {
+        field.addEventListener('input', function () {
+          field.style.height = 'auto';
+          field.style.height = field.scrollHeight + 'px';
+        });
+      });
+      var row = el('div', { class: 'editor__row' }, [
+        el('span', { class: 'editor__num' }),
+        term, definition,
+        el('button', { class: 'iconbtn', type: 'button', title: 'Zeile löschen', 'aria-label': 'Zeile löschen', onclick: function () {
+          rows.removeChild(row);
+          number();
+        } }, [u.icon('trash')])
+      ]);
+      row._read = function () { return { id: card.id, starred: card.starred, term: term.value.trim(), definition: definition.value.trim() }; };
+      rows.appendChild(row);
+      number();
+      if (focus) term.focus();
+    }
+
+    function number() {
+      u.qsa('.editor__row', rows).forEach(function (row, index) {
+        u.qs('.editor__num', row).textContent = index + 1;
+      });
+    }
+
+    set.cards.forEach(function (card) { addRow(card); });
+
+    function save() {
+      var cards = u.qsa('.editor__row', rows).map(function (row) { return row._read(); })
+        .filter(function (card) { return card.term || card.definition; });
+      if (!cards.length) { u.toast('Mindestens eine Karte', 'alert'); return; }
+      set.title = titleInput.value.trim() || 'Ohne Titel';
+      set.cards = cards.map(function (card) { return { id: card.id || u.uid(), term: card.term, definition: card.definition, starred: !!card.starred }; });
+      App.store.saveSet(set);
+      u.toast('Gespeichert', 'check');
+      App.ui.go('#/set/' + set.id);
+    }
+
+    host.appendChild(App.ui.topbar({
+      title: isNew ? 'Neues Set' : 'Bearbeiten',
+      back: isNew ? '#/' : '#/set/' + set.id,
+      actions: [
+        el('button', { class: 'iconbtn', type: 'button', title: 'Zeile hinzufügen', 'aria-label': 'Zeile hinzufügen', onclick: function () { addRow({ term: '', definition: '' }, true); } }, [u.icon('plus')]),
+        el('button', { class: 'iconbtn iconbtn--accent', type: 'button', title: 'Speichern', 'aria-label': 'Speichern', onclick: save }, [u.icon('check')])
+      ]
+    }));
+    host.appendChild(el('div', { class: 'field field--title' }, [u.icon('tag'), titleInput]));
+    host.appendChild(rows);
+    host.appendChild(el('div', { class: 'editor__foot' }, [
+      el('button', { class: 'btn', type: 'button', onclick: function () { addRow({ term: '', definition: '' }, true); } }, [u.icon('plus'), el('span', { text: 'Karte' })]),
+      el('button', { class: 'btn', type: 'button', onclick: function () { openTextImport(); } }, [u.icon('paste'), el('span', { text: 'Text' })]),
+      el('button', { class: 'btn btn--primary', type: 'button', onclick: save }, [u.icon('check'), el('span', { text: 'Speichern' })])
+    ]));
+
+    App.ui.keys({ 's': { always: true, run: function (event) { if (event.ctrlKey || event.metaKey) save(); } } });
+  }
+
+  /* ==================== Import über Link (#/import?d=) ==================== */
+
+  function renderImport(host, segments, query) {
+    if (!query.d) { App.ui.go('#/new'); return; }
+    var set = App.store.decodeSet(query.d);
+    if (!set) { host.appendChild(App.ui.empty('alert', 'Link nicht lesbar')); return; }
+    previewImport({ title: set.title, cards: set.cards, source: 'Geteilter Link' });
+    renderHome(host);
+  }
+
+  /* ==================== Einstellungen ==================== */
+
+  function renderSettings(host) {
+    var settings = App.store.settings();
+
+    function toggle(iconName, label, key, value) {
+      var button = el('button', {
+        class: 'toggle' + (value ? ' is-on' : ''), type: 'button', title: label,
+        onclick: function () {
+          var next = !App.store.settings()[key];
+          App.store.updateSettings(JSON.parse('{"' + key + '":' + next + '}'));
+          button.classList.toggle('is-on', next);
+          if (key === 'theme') App.ui.applyTheme();
+        }
+      }, [u.icon(iconName), el('span', { text: label }), el('span', { class: 'toggle__dot' })]);
+      return button;
+    }
+
+    function choice(label, key, options) {
+      var group = el('div', { class: 'choice' });
+      options.forEach(function (option) {
+        var active = App.store.settings()[key] === option.value;
+        var button = el('button', {
+          class: 'choice__item' + (active ? ' is-on' : ''), type: 'button', title: option.label,
+          onclick: function () {
+            var patch = {}; patch[key] = option.value;
+            App.store.updateSettings(patch);
+            u.qsa('.choice__item', group).forEach(function (node) { node.classList.remove('is-on'); });
+            button.classList.add('is-on');
+            if (key === 'theme') App.ui.applyTheme();
+          }
+        }, [u.icon(option.icon), el('span', { text: option.label })]);
+        group.appendChild(button);
+      });
+      return el('div', { class: 'setting' }, [el('span', { class: 'setting__label', text: label }), group]);
+    }
+
+    host.appendChild(App.ui.topbar({ title: 'Einstellungen', back: '#/' }));
+    host.appendChild(el('div', { class: 'settings' }, [
+      choice('Design', 'theme', [
+        { value: 'dark', label: 'Dunkel', icon: 'moon' },
+        { value: 'light', label: 'Hell', icon: 'sun' }
+      ]),
+      choice('Vorderseite', 'front', [
+        { value: 'term', label: 'Begriff', icon: 'cards' },
+        { value: 'definition', label: 'Definition', icon: 'flip' }
+      ]),
+      choice('Antwort', 'answerWith', [
+        { value: 'definition', label: 'Definition', icon: 'pencil' },
+        { value: 'term', label: 'Begriff', icon: 'tag' }
+      ]),
+      el('div', { class: 'setting' }, [
+        el('span', { class: 'setting__label', text: 'Optionen' }),
+        el('div', { class: 'choice' }, [
+          toggle('volume', 'Ton', 'sound', settings.sound),
+          toggle('shuffle', 'Mischen', 'shuffle', settings.shuffle),
+          toggle('star', 'Nur markierte', 'starredOnly', settings.starredOnly)
+        ])
+      ]),
+      el('div', { class: 'setting' }, [
+        el('span', { class: 'setting__label', text: 'Daten' }),
+        el('div', { class: 'choice' }, [
+          el('button', { class: 'choice__item', type: 'button', onclick: function () {
+            downloadFile('quizfree-backup.json', App.store.exportAll());
+          } }, [u.icon('download'), el('span', { text: 'Sichern' })]),
+          el('button', { class: 'choice__item', type: 'button', onclick: pickFile }, [u.icon('upload'), el('span', { text: 'Laden' })])
+        ])
+      ])
+    ]));
+    host.appendChild(el('p', { class: 'hint hint--center', text: 'Alles bleibt lokal im Browser.' }));
+  }
+
+  /* ==================== Registrierung ==================== */
+
+  App.pages = {
+    modes: MODES,
+    setCard: setCard,
+    openTextImport: openTextImport,
+    previewImport: previewImport,
+    downloadFile: downloadFile
+  };
+
+  App.registerPages = function () {
+    App.ui.register('home', renderHome);
+    App.ui.register('new', renderNew);
+    App.ui.register('library', renderLibrary);
+    App.ui.register('set', renderSet);
+    App.ui.register('edit', renderEditor);
+    App.ui.register('import', renderImport);
+    App.ui.register('settings', renderSettings);
+    App.ui.register('notfound', function (host) {
+      host.appendChild(App.ui.empty('alert', 'Seite nicht gefunden',
+        el('a', { class: 'btn btn--primary', href: '#/' }, [u.icon('home'), el('span', { text: 'Start' })])));
+    });
+  };
+})(window.App);
