@@ -450,34 +450,33 @@ window.App = window.App || {};
   function renderHome(host) {
     var sets = App.store.allSets();
 
-    host.appendChild(el('section', { class: 'hero' }, [
-      el('div', { class: 'hero__mark' }, [u.icon('logo')])
-    ]));
-
-    host.appendChild(importCard());
-
-    host.appendChild(el('div', { class: 'chips' }, [
-      el('button', { class: 'chip', type: 'button', title: 'Text einfügen', onclick: function () { openTextImport(); } },
-        [u.icon('paste'), el('span', { text: 'Text' })]),
-      el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } },
-        [u.icon('wand'), el('span', { text: 'Prompt' })]),
-      el('button', { class: 'chip', type: 'button', title: 'Datei laden (CSV/TXT)', onclick: pickFile },
-        [u.icon('upload'), el('span', { text: 'Datei' })]),
-      el('a', { class: 'chip', href: '#/edit/new', title: 'Selbst schreiben' },
-        [u.icon('plus'), el('span', { text: 'Neu' })]),
-      el('button', { class: 'chip', type: 'button', title: 'Demo-Set laden', onclick: function () {
-        var set = App.store.saveSet(demoSet());
-        App.ui.go('#/set/' + set.id);
-      } }, [u.icon('sparkles'), el('span', { text: 'Demo' })])
-    ]));
-
-    // Was die App kann - als Symbolreihe statt als Fließtext
-    host.appendChild(el('div', { class: 'teaser' }, MODES.map(function (mode) {
-      return el('div', { class: 'teaser__item mode--' + mode.color, title: mode.title }, [
-        el('div', { class: 'teaser__icon' }, [u.icon(mode.icon)]),
-        el('span', { class: 'teaser__label', text: mode.title })
-      ]);
-    })));
+    // Einstieg als eine Spalte: Zeichen, Import-Karte, Chips, Symbolreihe
+    var start = el('section', { class: 'start' }, [
+      el('div', { class: 'start__mark' }, [u.icon('logo')]),
+      importCard(),
+      el('div', { class: 'chips' }, [
+        el('button', { class: 'chip', type: 'button', title: 'Text einfügen', onclick: function () { openTextImport(); } },
+          [u.icon('paste'), el('span', { text: 'Text' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Prompt für ChatGPT & Co.', onclick: function () { openPromptHelper(); } },
+          [u.icon('wand'), el('span', { text: 'Prompt' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Datei laden (CSV/TXT)', onclick: pickFile },
+          [u.icon('upload'), el('span', { text: 'Datei' })]),
+        el('a', { class: 'chip', href: '#/edit/new', title: 'Selbst schreiben' },
+          [u.icon('plus'), el('span', { text: 'Neu' })]),
+        el('button', { class: 'chip', type: 'button', title: 'Demo-Set laden', onclick: function () {
+          var set = App.store.saveSet(demoSet());
+          App.ui.go('#/set/' + set.id);
+        } }, [u.icon('sparkles'), el('span', { text: 'Demo' })])
+      ]),
+      // Was die App kann - als Symbolreihe statt als Fließtext
+      el('div', { class: 'teaser' }, MODES.map(function (mode) {
+        return el('div', { class: 'teaser__item mode--' + mode.color, title: mode.title }, [
+          el('div', { class: 'teaser__icon' }, [u.icon(mode.icon)]),
+          el('span', { class: 'teaser__label', text: mode.title })
+        ]);
+      }))
+    ]);
+    host.appendChild(start);
 
     var recent = sets.slice(0, 8);
     if (recent.length) {

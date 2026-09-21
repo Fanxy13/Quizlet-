@@ -6,10 +6,10 @@ läuft im Browser.
 
 ## Starten
 
-* **Lokal:** `index.html` doppelklicken. Fertig, es gibt keinen Build-Schritt.
-* **Im Netz:** Repo auf GitHub Pages veröffentlichen
-  (Settings → Pages → Branch wählen → `/root`). Die Seite liegt dann unter
-  `https://<name>.github.io/Quizlet-/`.
+* **Im Netz:** <https://fanxy13.github.io/Quizlet-/> – veröffentlicht über
+  GitHub Pages (Settings → Pages → Branch `main`, Ordner `/ (root)`).
+* **Lokal:** `index.html` doppelklicken. Kein Build-Schritt, keine Installation,
+  keine Abhängigkeiten.
 
 ## Was drin ist
 
@@ -77,17 +77,18 @@ Hash), es wird also nichts hochgeladen.
 
 ## Tastatur
 
-| Taste | Wirkung |
-| --- | --- |
-| `Leertaste` / `F` | Karte umdrehen |
-| `←` `→` | vor und zurück |
-| `↑` `↓` | „Sitzt“ / „Nochmal“ |
-| `1`–`6` | Antwort auswählen |
-| `Leertaste` | im Speed-Modus: Pause |
-| `Enter` | prüfen bzw. weiter |
-| `A` | vorlesen |
-| `S` | mischen |
-| `Strg`/`Cmd` + `S` | Set im Editor speichern |
+| Wo | Taste | Wirkung |
+| --- | --- | --- |
+| Karteikarten | `Leertaste` / `F` | Karte umdrehen |
+| Karteikarten | `←` `→` | vor und zurück |
+| Karteikarten | `↑` `↓` | „Sitzt“ / „Nochmal“ |
+| Karteikarten | `A` / `S` | vorlesen / mischen |
+| Lernen, Test | `1`–`4` | Antwort auswählen |
+| Lernen, Schreiben | `Enter` | prüfen bzw. weiter |
+| Lernen | `Leertaste` | nach einer falschen Antwort weiter |
+| Speed | `1`–`6` | Antwort auswählen |
+| Speed | `Leertaste` | Pause |
+| Editor | `Strg`/`Cmd` + `S` | Set speichern |
 
 ## Daten und Speicherung
 
@@ -109,11 +110,14 @@ Zweitkopie sowie Sichern und Laden.
 Cookies werden bewusst nicht verwendet: sie fassen nur rund 4 KB und würden bei
 jeder Anfrage mitgeschickt – für Lernsets ungeeignet.
 
-Nichts wird an einen Server geschickt. Ausnahme: Beim Link-Import geht die
-aufgerufene Adresse an den jeweiligen Read-Proxy. Die Daten gehören zur
-jeweiligen Adresse – Sets von `fanxy13.github.io` tauchen also nicht in einer
-lokal geöffneten Kopie auf. Für den Wechsel auf ein anderes Gerät:
-**Sichern** und dort **Laden**, oder ein einzelnes Set als Link teilen.
+Die App ruft keine fremden Server auf – kein Tracker, kein Proxy, keine
+Anmeldung. Der einzige Netzzugriff geschieht im Quizlet-Helfer, und der läuft
+nicht hier, sondern im Browser auf der Quizlet-Seite.
+
+Gespeichertes gehört immer zu einer Adresse: Sets von `fanxy13.github.io` tauchen
+nicht in einer lokal geöffneten Kopie auf und umgekehrt. Für den Wechsel auf ein
+anderes Gerät **Sichern** und dort **Laden**, oder ein einzelnes Set als Link
+teilen.
 
 ## Aufbau
 
@@ -132,7 +136,7 @@ Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Werkzeug.
 
 ### Version
 
-Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.7`),
+Die Datei-Verweise in `index.html` tragen einen Versionsstempel (`?v=1.8`),
 damit Browser nach einer Änderung nicht die alte Fassung aus dem Zwischenspeicher
 nehmen. Beim Ändern von `css/` oder `js/` diesen Stempel und `App.VERSION` in
 `js/app.js` gemeinsam hochzählen. Die laufende Version steht in der App unter
