@@ -71,11 +71,26 @@ Sets scheitern deshalb alle Proxys. Dafür gibt es den **Quizlet-Helfer**
    (Chrome verlangt beim ersten Mal, dass man `allow pasting` tippt)
 3. Die Seite wechselt zu QuizFree, die Karten stehen als Import bereit
 
-Der Code liest die Karten aus drei Quellen: eingebettetes JSON, Rohsuche im
-Quelltext und den sichtbaren Karten der Seite. Die Übergabe läuft über die
-Adresszeile; ist das Set dafür zu groß oder blockt der Browser das neue
-Fenster (so ist es aus der Konsole heraus immer), wandern die Daten über
-`window.name` und die Seite wechselt im selben Tab.
+Der Code versucht vier Wege der Reihe nach:
+
+1. **Quizlets Schnittstelle mit deiner Sitzung** – `fetch(..., {credentials: "include"})`
+   auf `webapi/3.4/studiable-item-documents`. Weil die Anfrage von der Quizlet-Seite
+   selbst kommt, gehen deine Cookies mit: die Antwort enthält **alle** Karten,
+   auch ungescrollte, und private Sets funktionieren ebenfalls.
+2. eingebettetes JSON der Seite
+3. Rohsuche im Quelltext
+4. die sichtbaren Karten im Seiteninhalt
+
+Die Übergabe läuft über die Adresszeile; ist das Set dafür zu groß oder blockt der
+Browser das neue Fenster (aus der Konsole heraus ist das immer so), wandern die
+Daten über `window.name` und die Seite wechselt im selben Tab.
+
+Zum Stand der Technik: Genau dieser Endpunkt wird auch von den bekannten
+Open-Source-Werkzeugen benutzt, antwortet von außen aber mit `403`. `quizlet-fetcher`
+hat das Herunterladen deshalb in Version 1.1.0 entfernt („You'll need to provide the
+webpage yourself"), und im meistgenutzten Gist dazu rät der Autor, Cookies
+mitzuschicken. Deshalb läuft der Abruf hier im Browser des Nutzers. Übernommen
+wurde nur das Vorgehen, kein fremder Code – der Gist steht unter keiner Lizenz.
 
 Der Code läuft in der bereits geladenen Seite, also in einer ganz normalen
 Browser-Sitzung. Es gibt keinen Proxy, den Cloudflare blocken könnte. Wahlweise
