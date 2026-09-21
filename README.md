@@ -4,12 +4,6 @@ Ein kostenloser Quizlet-Klon: Karten per Lesezeichen von Quizlet holen oder einf
 und sofort abgefragt werden. Kein Konto, kein Server, keine Bezahlschranke – alles
 läuft im Browser.
 
-## Starten
-
-* **Im Netz:** <https://fanxy13.github.io/Quizlet-/> – veröffentlicht über
-  GitHub Pages (Settings → Pages → Branch `main`, Ordner `/ (root)`).
-* **Lokal:** `index.html` doppelklicken. Kein Build-Schritt, keine Installation,
-  keine Abhängigkeiten.
 
 ## Was drin ist
 
