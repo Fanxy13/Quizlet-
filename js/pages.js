@@ -262,14 +262,22 @@ window.App = window.App || {};
     ].join('\n');
   }
 
-  /** Ziehbares Lesezeichen mit dem Helfer-Code. */
+  /** Ziehbares Lesezeichen mit dem Helfer-Code.
+      javascript:-Lesezeichen bekommen vom Browser kein Favicon - das Emoji
+      am Anfang des Namens steht in der Leiste stattdessen als Icon. */
   function bookmarkletLink(label) {
+    var name = '\uD83D\uDCD8 ' + (label || 'QuizFree-Import');
     var link = el('a', {
       class: 'chip chip--drag',
       title: 'In die Lesezeichenleiste ziehen',
       draggable: 'true'
-    }, [u.icon('star'), el('span', { text: label || 'QuizFree-Import' })]);
-    link.setAttribute('href', 'javascript:' + encodeURIComponent(quizletSnippet()));
+    }, [el('span', { text: name })]);
+    var href = 'javascript:' + encodeURIComponent(quizletSnippet());
+    link.setAttribute('href', href);
+    // Firefox übernimmt den Namen nur über dieses Format
+    link.addEventListener('dragstart', function (event) {
+      event.dataTransfer.setData('text/x-moz-url', href + '\n' + name);
+    });
     link.addEventListener('click', function (event) {
       event.preventDefault();
       u.toast('Nach oben in die Lesezeichenleiste ziehen', 'info');
